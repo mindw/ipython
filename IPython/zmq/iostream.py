@@ -4,7 +4,8 @@ from io import StringIO
 
 from session import extract_header, Message
 
-from IPython.utils import io, text
+from IPython.utils import io, text, encoding
+from IPython.utils import py3compat
 
 #-----------------------------------------------------------------------------
 # Globals
@@ -54,8 +55,11 @@ class OutStream(object):
     def isatty(self):
         return False
 
-    def next(self):
+    def __next__(self):
         raise IOError('Read not supported on a write only stream.')
+
+    if not py3compat.PY3:
+        next = __next__
 
     def read(self, size=-1):
         raise IOError('Read not supported on a write only stream.')
@@ -69,7 +73,7 @@ class OutStream(object):
         else:
             # Make sure that we're handling unicode
             if not isinstance(string, unicode):
-                enc = text.getdefaultencoding()
+                enc = encoding.DEFAULT_ENCODING
                 string = string.decode(enc, 'replace')
             
             self._buffer.write(string)

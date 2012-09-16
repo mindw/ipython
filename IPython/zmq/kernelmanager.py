@@ -181,7 +181,7 @@ class ZMQSocketChannel(Thread):
 
 
 class ShellSocketChannel(ZMQSocketChannel):
-    """The XREQ channel for issues request/replies to the kernel.
+    """The DEALER channel for issues request/replies to the kernel.
     """
 
     command_queue = None
@@ -219,7 +219,7 @@ class ShellSocketChannel(ZMQSocketChannel):
         """
         raise NotImplementedError('call_handlers must be defined in a subclass.')
 
-    def execute(self, code, silent=False,
+    def execute(self, code, silent=False, store_history=True,
                 user_variables=None, user_expressions=None, allow_stdin=None):
         """Execute code in the kernel.
 
@@ -229,7 +229,12 @@ class ShellSocketChannel(ZMQSocketChannel):
             A string of Python code.
 
         silent : bool, optional (default False)
-            If set, the kernel will execute the code as quietly possible.
+            If set, the kernel will execute the code as quietly possible, and
+            will force store_history to be False.
+
+        store_history : bool, optional (default True)
+            If set, the kernel will store command history.  This is forced
+            to be False if silent is True.
 
         user_variables : list, optional
             A list of variable names to pull from the user's namespace.  They
@@ -237,15 +242,16 @@ class ShellSocketChannel(ZMQSocketChannel):
             :func:`repr` as values.
 
         user_expressions : dict, optional
-            A dict with string keys and  to pull from the user's
-            namespace.  They will come back as a dict with these names as keys
-            and their :func:`repr` as values.
+            A dict mapping names to expressions to be evaluated in the user's
+            dict. The expression values are returned as strings formatted using
+            :func:`repr`.
 
-        allow_stdin : bool, optional
-            Flag for 
-            A dict with string keys and  to pull from the user's
-            namespace.  They will come back as a dict with these names as keys
-            and their :func:`repr` as values.
+        allow_stdin : bool, optional (default self.allow_stdin)
+            Flag for whether the kernel can send stdin requests to frontends.
+
+            Some frontends (e.g. the Notebook) do not support stdin requests. 
+            If raw_input is called from code executed from such a frontend, a
+            StdinNotImplementedError will be raised.
 
         Returns
         -------
@@ -267,7 +273,7 @@ class ShellSocketChannel(ZMQSocketChannel):
 
         # Create class for content/msg creation. Related to, but possibly
         # not in Session.
-        content = dict(code=code, silent=silent,
+        content = dict(code=code, silent=silent, store_history=store_history,
                        user_variables=user_variables,
                        user_expressions=user_expressions,
                        allow_stdin=allow_stdin,
@@ -781,9 +787,6 @@ class KernelManager(HasTraits):
 
         Parameters:
         -----------
-        ipython : bool, optional (default True)
-             Whether to use an IPython kernel instead of a plain Python kernel.
-
         launcher : callable, optional (default None)
              A custom function for launching the kernel process (generally a
              wrapper around ``entry_point.base_launch_kernel``). In most cases,
@@ -805,10 +808,7 @@ class KernelManager(HasTraits):
         self._launch_args = kw.copy()
         launch_kernel = kw.pop('launcher', None)
         if launch_kernel is None:
-            if kw.pop('ipython', True):
-                from ipkernel import launch_kernel
-            else:
-                from pykernel import launch_kernel
+            from ipkernel import launch_kernel
         self.kernel = launch_kernel(fname=self.connection_file, **kw)
 
     def shutdown_kernel(self, restart=False):
@@ -903,7 +903,7 @@ class KernelManager(HasTraits):
             # Attempt to kill the kernel.
             try:
                 self.kernel.kill()
-            except OSError, e:
+            except OSError as e:
                 # In Windows, we will get an Access Denied error if the process
                 # has already terminated. Ignore it.
                 if sys.platform == 'win32':

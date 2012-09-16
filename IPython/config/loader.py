@@ -26,6 +26,7 @@ import sys
 from IPython.external import argparse
 from IPython.utils.path import filefind, get_ipython_dir
 from IPython.utils import py3compat, text, warn
+from IPython.utils.encoding import DEFAULT_ENCODING
 
 #-----------------------------------------------------------------------------
 # Exceptions
@@ -81,7 +82,7 @@ class Config(dict):
     def _merge(self, other):
         to_update = {}
         for k, v in other.iteritems():
-            if not self.has_key(k):
+            if k not in self:
                 to_update[k] = v
             else: # I have this key
                 if isinstance(v, Config):
@@ -162,19 +163,19 @@ class Config(dict):
     def __getattr__(self, key):
         try:
             return self.__getitem__(key)
-        except KeyError, e:
+        except KeyError as e:
             raise AttributeError(e)
 
     def __setattr__(self, key, value):
         try:
             self.__setitem__(key, value)
-        except KeyError, e:
+        except KeyError as e:
             raise AttributeError(e)
 
     def __delattr__(self, key):
         try:
             dict.__delitem__(self, key)
-        except KeyError, e:
+        except KeyError as e:
             raise AttributeError(e)
 
 
@@ -333,27 +334,24 @@ class CommandLineConfigLoader(ConfigLoader):
     """
 
     def _exec_config_str(self, lhs, rhs):
-        """execute self.config.<lhs>=<rhs>
+        """execute self.config.<lhs> = <rhs>
         
         * expands ~ with expanduser
-        * tries to assign with raw exec, otherwise assigns with just the string,
+        * tries to assign with raw eval, otherwise assigns with just the string,
           allowing `--C.a=foobar` and `--C.a="foobar"` to be equivalent.  *Not*
           equivalent are `--C.a=4` and `--C.a='4'`.
         """
         rhs = os.path.expanduser(rhs)
-        exec_str = 'self.config.' + lhs + '=' + rhs
         try:
             # Try to see if regular Python syntax will work. This
             # won't handle strings as the quote marks are removed
             # by the system shell.
-            exec exec_str in locals(), globals()
+            value = eval(rhs)
         except (NameError, SyntaxError):
-            # This case happens if the rhs is a string but without
-            # the quote marks. Use repr, to get quote marks, and
-            # 'u' prefix and see if
-            # it succeeds. If it still fails, we let it raise.
-            exec_str = u'self.config.' + lhs + '= rhs'
-            exec exec_str in locals(), globals()
+            # This case happens if the rhs is a string.
+            value = rhs
+
+        exec u'self.config.%s = value' % lhs
 
     def _load_flag(self, cfg):
         """update self.config from a flag, which can be a dict or Config"""
@@ -419,8 +417,9 @@ class KeyValueConfigLoader(CommandLineConfigLoader):
 
             >>> from IPython.config.loader import KeyValueConfigLoader
             >>> cl = KeyValueConfigLoader()
-            >>> cl.load_config(["--A.name='brian'","--B.number=0"])
-            {'A': {'name': 'brian'}, 'B': {'number': 0}}
+            >>> d = cl.load_config(["--A.name='brian'","--B.number=0"])
+            >>> sorted(d.items())
+            [('A', {'name': 'brian'}), ('B', {'number': 0})]
         """
         self.clear()
         if argv is None:
@@ -439,7 +438,7 @@ class KeyValueConfigLoader(CommandLineConfigLoader):
         """decode argv if bytes, using stin.encoding, falling back on default enc"""
         uargv = []
         if enc is None:
-            enc = text.getdefaultencoding()
+            enc = DEFAULT_ENCODING
         for arg in argv:
             if not isinstance(arg, unicode):
                 # only decode if not already decoded
@@ -603,7 +602,7 @@ class ArgParseConfigLoader(CommandLineConfigLoader):
     def _parse_args(self, args):
         """self.parser->self.parsed_data"""
         # decode sys.argv to support unicode command-line options
-        enc = text.getdefaultencoding()
+        enc = DEFAULT_ENCODING
         uargs = [py3compat.cast_unicode(a, enc) for a in args]
         self.parsed_data, self.extra_args = self.parser.parse_known_args(uargs)
 
@@ -617,11 +616,6 @@ class KVArgParseConfigLoader(ArgParseConfigLoader):
     but will use KVLoader for the rest.  This allows better parsing
     of common args, such as `ipython -c 'print 5'`, but still gets
     arbitrary config with `ipython --InteractiveShell.use_readline=False`"""
-
-    def _convert_to_config(self):
-        """self.parsed_data->self.config"""
-        for k, v in vars(self.parsed_data).iteritems():
-            self._exec_config_str(k, v)
 
     def _add_arguments(self, aliases=None, flags=None):
         self.alias_flags = {}

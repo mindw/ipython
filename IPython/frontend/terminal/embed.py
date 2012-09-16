@@ -23,16 +23,19 @@ Notes
 #-----------------------------------------------------------------------------
 
 from __future__ import with_statement
-import __main__
 
 import sys
+import warnings
+
+# We need to use nested to support python 2.6, once we move to >=2.7, we can
+# use the with keyword's new builtin support for nested managers
 try:
     from contextlib import nested
 except:
     from IPython.utils.nested_context import nested
-import warnings
 
-from IPython.core import ultratb
+from IPython.core import ultratb, compilerop
+from IPython.core.magic import Magics, magics_class, line_magic
 from IPython.frontend.terminal.interactiveshell import TerminalInteractiveShell
 from IPython.frontend.terminal.ipapp import load_default_config
 
@@ -45,21 +48,27 @@ from IPython.utils.io import ask_yes_no
 #-----------------------------------------------------------------------------
 
 # This is an additional magic that is exposed in embedded shells.
-def kill_embedded(self,parameter_s=''):
-    """%kill_embedded : deactivate for good the current embedded IPython.
+@magics_class
+class EmbeddedMagics(Magics):
 
-    This function (after asking for confirmation) sets an internal flag so that
-    an embedded IPython will never activate again.  This is useful to
-    permanently disable a shell that is being called inside a loop: once you've
-    figured out what you needed from it, you may then kill it and the program
-    will then continue to run without the interactive shell interfering again.
-    """
+    @line_magic
+    def kill_embedded(self, parameter_s=''):
+        """%kill_embedded : deactivate for good the current embedded IPython.
 
-    kill = ask_yes_no("Are you sure you want to kill this embedded instance "
-                     "(y/n)? [y/N] ",'n')
-    if kill:
-        self.embedded_active = False
-        print "This embedded IPython will not reactivate anymore once you exit."
+        This function (after asking for confirmation) sets an internal flag so
+        that an embedded IPython will never activate again.  This is useful to
+        permanently disable a shell that is being called inside a loop: once
+        you've figured out what you needed from it, you may then kill it and
+        the program will then continue to run without the interactive shell
+        interfering again.
+        """
+
+        kill = ask_yes_no("Are you sure you want to kill this embedded instance "
+                         "(y/n)? [y/N] ",'n')
+        if kill:
+            self.shell.embedded_active = False
+            print ("This embedded IPython will not reactivate anymore "
+                   "once you exit.")
 
 
 class InteractiveShellEmbed(TerminalInteractiveShell):
@@ -89,7 +98,6 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
         )
 
         self.exit_msg = exit_msg
-        self.define_magic("kill_embedded", kill_embedded)
 
         # don't use the ipython crash handler so that user exceptions aren't
         # trapped
@@ -100,8 +108,12 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
     def init_sys_modules(self):
         pass
 
+    def init_magics(self):
+        super(InteractiveShellEmbed, self).init_magics()
+        self.register_magics(EmbeddedMagics)
+
     def __call__(self, header='', local_ns=None, module=None, dummy=None,
-                 stack_depth=1, global_ns=None):
+                 stack_depth=1, global_ns=None, compile_flags=None):
         """Activate the interactive interpreter.
 
         __call__(self,header='',local_ns=None,module=None,dummy=None) -> Start
@@ -142,7 +154,8 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
 
         # Call the embedding code with a stack depth of 1 so it can skip over
         # our call and get the original caller's namespaces.
-        self.mainloop(local_ns, module, stack_depth=stack_depth, global_ns=global_ns)
+        self.mainloop(local_ns, module, stack_depth=stack_depth,
+                      global_ns=global_ns, compile_flags=compile_flags)
 
         self.banner2 = self.old_banner2
 
@@ -150,7 +163,7 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
             print self.exit_msg
 
     def mainloop(self, local_ns=None, module=None, stack_depth=0,
-                 display_banner=None, global_ns=None):
+                 display_banner=None, global_ns=None, compile_flags=None):
         """Embeds IPython into a running python program.
 
         Input:
@@ -168,6 +181,11 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
           the namespace from the intended level in the stack.  By default (0)
           it will get its locals and globals from the immediate caller.
 
+          - compile_flags: A bit field identifying the __future__ features
+          that are enabled, as passed to the builtin `compile` function. If
+          given as None, they are automatically taken from the scope where the
+          shell was called.
+
         Warning: it's possible to use this in a program which is being run by
         IPython itself (via %run), but some funny things will happen (a few
         globals get overwritten). In the future this will be cleaned up, as
@@ -182,7 +200,8 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
             module.__dict__ = global_ns
 
         # Get locals and globals from caller
-        if (local_ns is None or module is None) and self.default_user_namespaces:
+        if ((local_ns is None or module is None or compile_flags is None)
+            and self.default_user_namespaces):
             call_frame = sys._getframe(stack_depth).f_back
 
             if local_ns is None:
@@ -190,11 +209,15 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
             if module is None:
                 global_ns = call_frame.f_globals
                 module = sys.modules[global_ns['__name__']]
+            if compile_flags is None:
+                compile_flags = (call_frame.f_code.co_flags &
+                                 compilerop.PyCF_MASK)
         
         # Save original namespace and module so we can restore them after 
         # embedding; otherwise the shell doesn't shut down correctly.
         orig_user_module = self.user_module
         orig_user_ns = self.user_ns
+        orig_compile_flags = self.compile.flags
         
         # Update namespaces and fire up interpreter
         
@@ -209,6 +232,10 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
         if local_ns is not None:
             self.user_ns = local_ns
             self.init_user_ns()
+
+        # Compiler flags
+        if compile_flags is not None:
+            self.compile.flags = compile_flags
 
         # Patch for global embedding to make sure that things don't overwrite
         # user globals accidentally. Thanks to Richard <rxe@renre-europe.com>
@@ -235,8 +262,7 @@ class InteractiveShellEmbed(TerminalInteractiveShell):
         # Restore original namespace so shell can shut down when we exit.
         self.user_module = orig_user_module
         self.user_ns = orig_user_ns
-
-_embedded_shell = None
+        self.compile.flags = orig_compile_flags
 
 
 def embed(**kwargs):
@@ -256,16 +282,15 @@ def embed(**kwargs):
         d = 40
         embed
 
-    Full customization can be done by passing a :class:`Struct` in as the
+    Full customization can be done by passing a :class:`Config` in as the
     config argument.
     """
     config = kwargs.get('config')
     header = kwargs.pop('header', u'')
+    compile_flags = kwargs.pop('compile_flags', None)
     if config is None:
         config = load_default_config()
         config.InteractiveShellEmbed = config.TerminalInteractiveShell
         kwargs['config'] = config
-    global _embedded_shell
-    if _embedded_shell is None:
-        _embedded_shell = InteractiveShellEmbed(**kwargs)
-    _embedded_shell(header=header, stack_depth=2)
+    shell = InteractiveShellEmbed.instance(**kwargs)
+    shell(header=header, stack_depth=2, compile_flags=compile_flags)

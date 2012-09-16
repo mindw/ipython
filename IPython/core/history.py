@@ -15,7 +15,6 @@ from __future__ import print_function
 # Stdlib imports
 import atexit
 import datetime
-from io import open as io_open
 import os
 import re
 try:
@@ -25,13 +24,12 @@ except ImportError:
 import threading
 
 # Our own packages
-from IPython.core.error import StdinNotImplementedError
 from IPython.config.configurable import Configurable
 from IPython.external.decorator import decorator
-from IPython.testing.skipdoctest import skip_doctest
-from IPython.utils import io
 from IPython.utils.path import locate_profile
-from IPython.utils.traitlets import Bool, Dict, Instance, Integer, List, Unicode
+from IPython.utils.traitlets import (
+    Any, Bool, Dict, Instance, Integer, List, Unicode, TraitError,
+)
 from IPython.utils.warn import warn
 
 #-----------------------------------------------------------------------------
@@ -53,14 +51,16 @@ class DummyDB(object):
     
     def __exit__(self, *args, **kwargs):
         pass
-    
+
+
 @decorator
-def needs_sqlite(f,*a,**kw):
+def needs_sqlite(f, self, *a, **kw):
     """return an empty list in the absence of sqlite"""
-    if sqlite3 is None:
+    if sqlite3 is None or not self.enabled:
         return []
     else:
-        return f(*a,**kw)
+        return f(self, *a, **kw)
+
 
 class HistoryAccessor(Configurable):
     """Access the history database without adding to it.
@@ -72,24 +72,47 @@ class HistoryAccessor(Configurable):
     hist_file = Unicode(config=True,
         help="""Path to file to use for SQLite history database.
         
-        By default, IPython will put the history database in the IPython profile
-        directory.  If you would rather share one history among profiles,
-        you ca set this value in each, so that they are consistent.
+        By default, IPython will put the history database in the IPython
+        profile directory.  If you would rather share one history among
+        profiles, you can set this value in each, so that they are consistent.
         
-        Due to an issue with fcntl, SQLite is known to misbehave on some NFS mounts.
-        If you see IPython hanging, try setting this to something on a local disk,
-        e.g::
+        Due to an issue with fcntl, SQLite is known to misbehave on some NFS
+        mounts.  If you see IPython hanging, try setting this to something on a
+        local disk, e.g::
         
             ipython --HistoryManager.hist_file=/tmp/ipython_hist.sqlite
         
         """)
-
+    
+    enabled = Bool(True, config=True,
+        help="""enable the SQLite history
+        
+        set enabled=False to disable the SQLite history,
+        in which case there will be no stored history, no SQLite connection,
+        and no background saving thread.  This may be necessary in some
+        threaded environments where IPython is embedded.
+        """
+    )
+    
+    connection_options = Dict(config=True,
+        help="""Options for configuring the SQLite connection
+        
+        These options are passed as keyword args to sqlite3.connect
+        when establishing database conenctions.
+        """
+    )
 
     # The SQLite database
-    if sqlite3:
-        db = Instance(sqlite3.Connection)
-    else:
-        db = Instance(DummyDB)
+    db = Any()
+    def _db_changed(self, name, old, new):
+        """validate the db, since it can be an Instance of two different types"""
+        connection_types = (DummyDB,)
+        if sqlite3 is not None:
+            connection_types = (DummyDB, sqlite3.Connection)
+        if not isinstance(new, connection_types):
+            msg = "%s.db must be sqlite3 Connection or DummyDB, not %r" % \
+                    (self.__class__.__name__, new)
+            raise TraitError(msg)
     
     def __init__(self, profile='default', hist_file=u'', config=None, **traits):
         """Create a new history accessor.
@@ -116,14 +139,18 @@ class HistoryAccessor(Configurable):
             # No one has set the hist_file, yet.
             self.hist_file = self._get_hist_file_name(profile)
 
-        if sqlite3 is None:
+        if sqlite3 is None and self.enabled:
             warn("IPython History requires SQLite, your history will not be saved\n")
-            self.db = DummyDB()
-            return
+            self.enabled = False
+        
+        if sqlite3 is not None:
+            DatabaseError = sqlite3.DatabaseError
+        else:
+            DatabaseError = Exception
         
         try:
             self.init_db()
-        except sqlite3.DatabaseError:
+        except DatabaseError:
             if os.path.isfile(self.hist_file):
                 # Try to move the file out of the way
                 base,ext = os.path.splitext(self.hist_file)
@@ -151,8 +178,14 @@ class HistoryAccessor(Configurable):
     
     def init_db(self):
         """Connect to the database, and create tables if necessary."""
+        if not self.enabled:
+            self.db = DummyDB()
+            return
+        
         # use detect_types so that timestamps return datetime objects
-        self.db = sqlite3.connect(self.hist_file, detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
+        kwargs = dict(detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
+        kwargs.update(self.connection_options)
+        self.db = sqlite3.connect(self.hist_file, **kwargs)
         self.db.execute("""CREATE TABLE IF NOT EXISTS sessions (session integer
                         primary key autoincrement, start timestamp,
                         end timestamp, num_cmds integer, remark text)""")
@@ -215,7 +248,8 @@ class HistoryAccessor(Configurable):
         Returns
         -------
 
-        (session_id [int], start [datetime], end [datetime], num_cmds [int], remark [unicode])
+        (session_id [int], start [datetime], end [datetime], num_cmds [int],
+        remark [unicode])
 
         Sessions that are running or did not exit cleanly will have `end=None`
         and `num_cmds=None`.
@@ -256,7 +290,7 @@ class HistoryAccessor(Configurable):
         return reversed(list(cur))
 
     def search(self, pattern="*", raw=True, search_raw=True,
-                                                        output=False):
+               output=False, n=None):
         """Search the database using unix glob-style matching (wildcards
         * and ?).
 
@@ -268,6 +302,9 @@ class HistoryAccessor(Configurable):
           If True, search the raw input, otherwise, the parsed input
         raw, output : bool
           See :meth:`get_range`
+        n : None or int
+          If an integer is given, it defines the limit of
+          returned entries.
 
         Returns
         -------
@@ -277,9 +314,16 @@ class HistoryAccessor(Configurable):
         if output:
             tosearch = "history." + tosearch
         self.writeout_cache()
-        return self._run_sql("WHERE %s GLOB ?" % tosearch, (pattern,),
-                                    raw=raw, output=output)
-    
+        sqlform = "WHERE %s GLOB ?" % tosearch
+        params = (pattern,)
+        if n is not None:
+            sqlform += " ORDER BY session DESC, line DESC LIMIT ?"
+            params += (n,)
+        cur = self._run_sql(sqlform, params, raw=raw, output=output)
+        if n is not None:
+            return reversed(list(cur))
+        return cur
+
     def get_range(self, session, start=1, stop=None, raw=True,output=False):
         """Retrieve input by session.
 
@@ -313,7 +357,7 @@ class HistoryAccessor(Configurable):
             lineclause = "line>=?"
             params = (session, start)
 
-        return self._run_sql("WHERE session==? AND %s""" % lineclause,
+        return self._run_sql("WHERE session==? AND %s" % lineclause,
                                     params, raw=raw, output=output)
 
     def get_range_by_str(self, rangestr, raw=True, output=False):
@@ -403,8 +447,9 @@ class HistoryManager(HistoryAccessor):
         self.save_flag = threading.Event()
         self.db_input_cache_lock = threading.Lock()
         self.db_output_cache_lock = threading.Lock()
-        self.save_thread = HistorySavingThread(self)
-        self.save_thread.start()
+        if self.enabled and self.hist_file != ':memory:':
+            self.save_thread = HistorySavingThread(self)
+            self.save_thread.start()
 
         self.new_session()
 
@@ -510,7 +555,8 @@ class HistoryManager(HistoryAccessor):
             session += self.session_number
         if session==self.session_number:          # Current session
             return self._get_range_session(start, stop, raw, output)
-        return super(HistoryManager, self).get_range(session, start, stop, raw, output)
+        return super(HistoryManager, self).get_range(session, start, stop, raw,
+                                                     output)
 
     ## ----------------------------
     ## Methods for storing history:
@@ -609,7 +655,9 @@ class HistoryManager(HistoryAccessor):
                 print("ERROR! Session/line number was not unique in",
                       "database. History logging moved to new session",
                                                 self.session_number)
-                try: # Try writing to the new session. If this fails, don't recurse
+                try:
+                    # Try writing to the new session. If this fails, don't
+                    # recurse
                     self._writeout_input_cache(conn)
                 except sqlite3.IntegrityError:
                     pass
@@ -635,16 +683,20 @@ class HistorySavingThread(threading.Thread):
     the cache size reaches a defined threshold."""
     daemon = True
     stop_now = False
+    enabled = True
     def __init__(self, history_manager):
         super(HistorySavingThread, self).__init__()
         self.history_manager = history_manager
+        self.enabled = history_manager.enabled
         atexit.register(self.stop)
 
     @needs_sqlite
     def run(self):
         # We need a separate db connection per thread:
         try:
-            self.db = sqlite3.connect(self.history_manager.hist_file)
+            self.db = sqlite3.connect(self.history_manager.hist_file,
+                            **self.history_manager.connection_options
+            )
             while True:
                 self.history_manager.save_flag.wait()
                 if self.stop_now:
@@ -674,6 +726,7 @@ range_re = re.compile(r"""
  ((?P<endsess>~?\d+)/)?
  (?P<end>\d+))?
 $""", re.VERBOSE)
+
 
 def extract_hist_ranges(ranges_str):
     """Turn a string of history ranges into 3-tuples of (session, start, stop).
@@ -707,270 +760,11 @@ def extract_hist_ranges(ranges_str):
             yield (sess, 1, None)
         yield (endsess, 1, end)
 
+
 def _format_lineno(session, line):
     """Helper function to format line numbers properly."""
     if session == 0:
         return str(line)
     return "%s#%s" % (session, line)
 
-@skip_doctest
-def magic_history(self, parameter_s = ''):
-    """Print input history (_i<n> variables), with most recent last.
 
-    %history [-o -p -t -n] [-f filename] [range | -g pattern | -l number]
-
-    By default, input history is printed without line numbers so it can be
-    directly pasted into an editor. Use -n to show them.
-
-    By default, all input history from the current session is displayed.
-    Ranges of history can be indicated using the syntax: 
-    4      : Line 4, current session
-    4-6    : Lines 4-6, current session
-    243/1-5: Lines 1-5, session 243
-    ~2/7   : Line 7, session 2 before current
-    ~8/1-~6/5 : From the first line of 8 sessions ago, to the fifth line
-                of 6 sessions ago.
-    Multiple ranges can be entered, separated by spaces
-
-    The same syntax is used by %macro, %save, %edit, %rerun
-
-    Options:
-
-      -n: print line numbers for each input.
-      This feature is only available if numbered prompts are in use.
-
-      -o: also print outputs for each input.
-
-      -p: print classic '>>>' python prompts before each input.  This is useful
-       for making documentation, and in conjunction with -o, for producing
-       doctest-ready output.
-
-      -r: (default) print the 'raw' history, i.e. the actual commands you typed.
-
-      -t: print the 'translated' history, as IPython understands it.  IPython
-      filters your input and converts it all into valid Python source before
-      executing it (things like magics or aliases are turned into function
-      calls, for example). With this option, you'll see the native history
-      instead of the user-entered version: '%cd /' will be seen as
-      'get_ipython().magic("%cd /")' instead of '%cd /'.
-
-      -g: treat the arg as a pattern to grep for in (full) history.
-      This includes the saved history (almost all commands ever written).
-      Use '%hist -g' to show full saved history (may be very long).
-
-      -l: get the last n lines from all sessions. Specify n as a single arg, or
-      the default is the last 10 lines.
-
-      -f FILENAME: instead of printing the output to the screen, redirect it to
-       the given file.  The file is always overwritten, though *when it can*,
-       IPython asks for confirmation first. In particular, running the command
-       "history -f FILENAME" from the IPython Notebook interface will replace
-       FILENAME even if it already exists *without* confirmation.
-
-    Examples
-    --------
-    ::
-
-      In [6]: %hist -n 4-6
-      4:a = 12
-      5:print a**2
-      6:%hist -n 4-6
-
-    """
-
-    if not self.shell.displayhook.do_full_cache:
-        print('This feature is only available if numbered prompts are in use.')
-        return
-    opts,args = self.parse_options(parameter_s,'noprtglf:',mode='string')
-
-    # For brevity
-    history_manager = self.shell.history_manager
-
-    def _format_lineno(session, line):
-        """Helper function to format line numbers properly."""
-        if session in (0, history_manager.session_number):
-            return str(line)
-        return "%s/%s" % (session, line)
-
-    # Check if output to specific file was requested.
-    try:
-        outfname = opts['f']
-    except KeyError:
-        outfile = io.stdout  # default
-        # We don't want to close stdout at the end!
-        close_at_end = False
-    else:
-        if os.path.exists(outfname):
-            try:
-                ans = io.ask_yes_no("File %r exists. Overwrite?" % outfname)
-            except StdinNotImplementedError:
-                ans = True
-            if not ans:
-                print('Aborting.')
-                return
-            print("Overwriting file.")
-        outfile = io_open(outfname, 'w', encoding='utf-8')
-        close_at_end = True
-
-    print_nums = 'n' in opts
-    get_output = 'o' in opts
-    pyprompts = 'p' in opts
-    # Raw history is the default
-    raw = not('t' in opts)
-
-    default_length = 40
-    pattern = None
-
-    if 'g' in opts:         # Glob search
-        pattern = "*" + args + "*" if args else "*"
-        hist = history_manager.search(pattern, raw=raw, output=get_output)
-        print_nums = True
-    elif 'l' in opts:       # Get 'tail'
-        try:
-            n = int(args)
-        except ValueError, IndexError:
-            n = 10
-        hist = history_manager.get_tail(n, raw=raw, output=get_output)
-    else:
-        if args:            # Get history by ranges
-            hist = history_manager.get_range_by_str(args, raw, get_output)
-        else:               # Just get history for the current session
-            hist = history_manager.get_range(raw=raw, output=get_output)
-
-    # We could be displaying the entire history, so let's not try to pull it
-    # into a list in memory. Anything that needs more space will just misalign.
-    width = 4
-
-    for session, lineno, inline in hist:
-        # Print user history with tabs expanded to 4 spaces.  The GUI clients
-        # use hard tabs for easier usability in auto-indented code, but we want
-        # to produce PEP-8 compliant history for safe pasting into an editor.
-        if get_output:
-            inline, output = inline
-        inline = inline.expandtabs(4).rstrip()
-
-        multiline = "\n" in inline
-        line_sep = '\n' if multiline else ' '
-        if print_nums:
-            print(u'%s:%s' % (_format_lineno(session, lineno).rjust(width),
-                    line_sep),  file=outfile, end=u'')
-        if pyprompts:
-            print(u">>> ", end=u"", file=outfile)
-            if multiline:
-                inline = "\n... ".join(inline.splitlines()) + "\n..."
-        print(inline, file=outfile)
-        if get_output and output:
-            print(output, file=outfile)
-
-    if close_at_end:
-        outfile.close()
-
-
-def magic_rep(self, arg):
-    r"""Repeat a command, or get command to input line for editing.
-    
-    %recall and %rep are equivalent.
-
-    - %recall (no arguments):
-
-    Place a string version of last computation result (stored in the special '_'
-    variable) to the next input prompt. Allows you to create elaborate command
-    lines without using copy-paste::
-
-         In[1]: l = ["hei", "vaan"]
-         In[2]: "".join(l)
-        Out[2]: heivaan
-         In[3]: %rep
-         In[4]: heivaan_ <== cursor blinking
-
-    %recall 45
-
-    Place history line 45 on the next input prompt. Use %hist to find
-    out the number.
-
-    %recall 1-4
-
-    Combine the specified lines into one cell, and place it on the next
-    input prompt. See %history for the slice syntax.
-
-    %recall foo+bar
-
-    If foo+bar can be evaluated in the user namespace, the result is
-    placed at the next input prompt. Otherwise, the history is searched
-    for lines which contain that substring, and the most recent one is
-    placed at the next input prompt.
-    """
-    if not arg:                 # Last output
-        self.set_next_input(str(self.shell.user_ns["_"]))
-        return
-                                # Get history range
-    histlines = self.history_manager.get_range_by_str(arg)
-    cmd = "\n".join(x[2] for x in histlines)
-    if cmd:
-        self.set_next_input(cmd.rstrip())
-        return
-
-    try:                        # Variable in user namespace
-        cmd = str(eval(arg, self.shell.user_ns))
-    except Exception:           # Search for term in history
-        histlines = self.history_manager.search("*"+arg+"*")
-        for h in reversed([x[2] for x in histlines]):
-            if 'rep' in h:
-                continue
-            self.set_next_input(h.rstrip())
-            return
-    else:
-        self.set_next_input(cmd.rstrip())
-    print("Couldn't evaluate or find in history:", arg)
-
-def magic_rerun(self, parameter_s=''):
-    """Re-run previous input
-
-    By default, you can specify ranges of input history to be repeated
-    (as with %history). With no arguments, it will repeat the last line.
-
-    Options:
-
-      -l <n> : Repeat the last n lines of input, not including the
-      current command.
-
-      -g foo : Repeat the most recent line which contains foo
-    """
-    opts, args = self.parse_options(parameter_s, 'l:g:', mode='string')
-    if "l" in opts:         # Last n lines
-        n = int(opts['l'])
-        hist = self.history_manager.get_tail(n)
-    elif "g" in opts:       # Search
-        p = "*"+opts['g']+"*"
-        hist = list(self.history_manager.search(p))
-        for l in reversed(hist):
-            if "rerun" not in l[2]:
-                hist = [l]     # The last match which isn't a %rerun
-                break
-        else:
-            hist = []          # No matches except %rerun
-    elif args:              # Specify history ranges
-        hist = self.history_manager.get_range_by_str(args)
-    else:                   # Last line
-        hist = self.history_manager.get_tail(1)
-    hist = [x[2] for x in hist]
-    if not hist:
-        print("No lines in history match specification")
-        return
-    histlines = "\n".join(hist)
-    print("=== Executing: ===")
-    print(histlines)
-    print("=== Output: ===")
-    self.run_cell("\n".join(hist), store_history=False)
-
-
-def init_ipython(ip):
-    ip.define_magic("rep", magic_rep)
-    ip.define_magic("recall", magic_rep)
-    ip.define_magic("rerun", magic_rerun)
-    ip.define_magic("hist",magic_history)    # Alternative name
-    ip.define_magic("history",magic_history)
-
-    # XXX - ipy_completers are in quarantine, need to be updated to new apis
-    #import ipy_completers
-    #ipy_completers.quick_completer('%hist' ,'-g -t -r -n')

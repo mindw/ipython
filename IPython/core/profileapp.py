@@ -85,6 +85,8 @@ ipython profile create foo --parallel # also stage parallel config files
 _main_examples = """
 ipython profile create -h  # show the help string for the create subcommand
 ipython profile list -h    # show the help string for the list subcommand
+
+ipython locate profile foo # print the path to the directory for profile 'foo'
 """
 
 #-----------------------------------------------------------------------------
@@ -115,6 +117,18 @@ def list_bundled_profiles():
     return profiles
 
 
+class ProfileLocate(BaseIPythonApplication):
+    description = """print the path an IPython profile dir"""
+    
+    def parse_command_line(self, argv=None):
+        super(ProfileLocate, self).parse_command_line(argv)
+        if self.extra_args:
+            self.profile = self.extra_args[0]
+    
+    def start(self):
+        print self.profile_dir.location
+
+
 class ProfileList(Application):
     name = u'ipython-profile'
     description = list_help
@@ -135,7 +149,7 @@ class ProfileList(Application):
         The name of the IPython directory. This directory is used for logging
         configuration (through profiles), history storage, etc. The default
         is usually $HOME/.ipython. This options can also be specified through
-        the environment variable IPYTHON_DIR.
+        the environment variable IPYTHONDIR.
         """
     )
 
@@ -277,8 +291,8 @@ class ProfileApp(Application):
     examples = _main_examples
 
     subcommands = Dict(dict(
-        create = (ProfileCreate, "Create a new profile dir with default config files"),
-        list = (ProfileList, "List existing profiles")
+        create = (ProfileCreate, ProfileCreate.description.splitlines()[0]),
+        list = (ProfileList, ProfileList.description.splitlines()[0]),
     ))
 
     def start(self):

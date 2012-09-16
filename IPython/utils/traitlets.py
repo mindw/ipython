@@ -117,6 +117,13 @@ def repr_type(obj):
     return msg
 
 
+def is_trait(t):
+    """ Returns whether the given value is an instance or subclass of TraitType.
+    """
+    return (isinstance(t, TraitType) or
+            (isinstance(t, type) and issubclass(t, TraitType)))
+
+
 def parse_notifier_name(name):
     """Convert the name argument to a list of names.
 
@@ -302,8 +309,8 @@ class TraitType(object):
     def __set__(self, obj, value):
         new_value = self._validate(obj, value)
         old_value = self.__get__(obj)
+        obj._trait_values[self.name] = new_value
         if old_value != new_value:
-            obj._trait_values[self.name] = new_value
             obj._notify_trait(self.name, old_value, new_value)
 
     def _validate(self, obj, value):
@@ -465,7 +472,7 @@ class HasTraits(object):
 
 
     def _add_notifiers(self, handler, name):
-        if not self._trait_notifiers.has_key(name):
+        if name not in self._trait_notifiers:
             nlist = []
             self._trait_notifiers[name] = nlist
         else:
@@ -474,7 +481,7 @@ class HasTraits(object):
             nlist.append(handler)
 
     def _remove_notifiers(self, handler, name):
-        if self._trait_notifiers.has_key(name):
+        if name in self._trait_notifiers:
             nlist = self._trait_notifiers[name]
             try:
                 index = nlist.index(handler)
@@ -1165,10 +1172,8 @@ class Container(Instance):
             further keys for extensions to the Trait (e.g. config)
 
         """
-        istrait = lambda t: isinstance(t, type) and issubclass(t, TraitType)
-
         # allow List([values]):
-        if default_value is None and not istrait(trait):
+        if default_value is None and not is_trait(trait):
             default_value = trait
             trait = None
 
@@ -1179,8 +1184,8 @@ class Container(Instance):
         else:
             raise TypeError('default value of %s was %s' %(self.__class__.__name__, default_value))
 
-        if istrait(trait):
-            self._trait = trait()
+        if is_trait(trait):
+            self._trait = trait() if isinstance(trait, type) else trait
             self._trait.name = 'element'
         elif trait is not None:
             raise TypeError("`trait` must be a Trait or None, got %s"%repr_type(trait))
@@ -1327,10 +1332,8 @@ class Tuple(Container):
         default_value = metadata.pop('default_value', None)
         allow_none = metadata.pop('allow_none', True)
 
-        istrait = lambda t: isinstance(t, type) and issubclass(t, TraitType)
-
         # allow Tuple((values,)):
-        if len(traits) == 1 and default_value is None and not istrait(traits[0]):
+        if len(traits) == 1 and default_value is None and not is_trait(traits[0]):
             default_value = traits[0]
             traits = ()
 
@@ -1343,7 +1346,7 @@ class Tuple(Container):
 
         self._traits = []
         for trait in traits:
-            t = trait()
+            t = trait() if isinstance(trait, type) else trait
             t.name = 'element'
             self._traits.append(t)
 
@@ -1411,3 +1414,17 @@ class TCPAddress(TraitType):
                     if port >= 0 and port <= 65535:
                         return value
         self.error(obj, value)
+
+class CRegExp(TraitType):
+    """A casting compiled regular expression trait.
+
+    Accepts both strings and compiled regular expressions. The resulting
+    attribute will be a compiled regular expression."""
+
+    info_text = 'a regular expression'
+
+    def validate(self, obj, value):
+        try:
+            return re.compile(value)
+        except:
+            self.error(obj, value)

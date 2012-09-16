@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 from IPython.core.error import TryNext
-
+import IPython.utils.py3compat as py3compat
 
 def win32_clipboard_get():
     """ Get the current clipboard's text on Windows.
@@ -15,9 +15,8 @@ def win32_clipboard_get():
     try:
         import win32clipboard
     except ImportError:
-        message = ("Getting text from the clipboard requires the pywin32 "
-            "extensions: http://sourceforge.net/projects/pywin32/")
-        raise TryNext(message)
+        raise TryNext("Getting text from the clipboard requires the pywin32 "
+                      "extensions: http://sourceforge.net/projects/pywin32/")
     win32clipboard.OpenClipboard()
     text = win32clipboard.GetClipboardData(win32clipboard.CF_TEXT)
     # FIXME: convert \r\n to \n?
@@ -32,6 +31,7 @@ def osx_clipboard_get():
     text, stderr = p.communicate()
     # Text comes in with old Mac \r line endings. Change them to \n.
     text = text.replace('\r', '\n')
+    text = py3compat.cast_unicode(text, py3compat.DEFAULT_ENCODING)
     return text
 
 def tkinter_clipboard_get():
@@ -44,13 +44,13 @@ def tkinter_clipboard_get():
     try:
         import Tkinter
     except ImportError:
-        message = ("Getting text from the clipboard on this platform "
-            "requires Tkinter.")
-        raise TryNext(message)
+        raise TryNext("Getting text from the clipboard on this platform "
+                      "requires Tkinter.")
     root = Tkinter.Tk()
     root.withdraw()
     text = root.clipboard_get()
     root.destroy()
+    text = py3compat.cast_unicode(text, py3compat.DEFAULT_ENCODING)
     return text
 
 

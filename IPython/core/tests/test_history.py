@@ -87,15 +87,27 @@ def test_history():
             # Check get_hist_search
             gothist = ip.history_manager.search("*test*")
             nt.assert_equal(list(gothist), [(1,2,hist[1])] )
+            gothist = ip.history_manager.search("*=*")
+            nt.assert_equal(list(gothist),
+                            [(1, 1, hist[0]),
+                             (1, 2, hist[1]),
+                             (1, 3, hist[2]),
+                             (2, 1, newcmds[0]),
+                             (2, 3, newcmds[2])])
+            gothist = ip.history_manager.search("*=*", n=3)
+            nt.assert_equal(list(gothist),
+                            [(1, 3, hist[2]),
+                             (2, 1, newcmds[0]),
+                             (2, 3, newcmds[2])])
             gothist = ip.history_manager.search("b*", output=True)
             nt.assert_equal(list(gothist), [(1,3,(hist[2],"spam"))] )
 
             # Cross testing: check that magic %save can get previous session.
             testfilename = os.path.realpath(os.path.join(tmpdir, "test.py"))
-            ip.magic_save(testfilename + " ~1/1-3")
-            with py3compat.open(testfilename) as testfile:
+            ip.magic("save " + testfilename + " ~1/1-3")
+            with py3compat.open(testfilename, encoding='utf-8') as testfile:
                 nt.assert_equal(testfile.read(),
-                                        u"# coding: utf-8\n" + u"\n".join(hist))
+                                        u"# coding: utf-8\n" + u"\n".join(hist)+u"\n")
 
             # Duplicate line numbers - check that it doesn't crash, and
             # gets a new session
@@ -139,7 +151,7 @@ def test_hist_file_config():
     cfg.HistoryManager.hist_file = tfile.name
     try:
         hm = HistoryManager(shell=get_ipython(), config=cfg)
-        nt.assert_equals(hm.hist_file, cfg.HistoryManager.hist_file)
+        nt.assert_equal(hm.hist_file, cfg.HistoryManager.hist_file)
     finally:
         try:
             os.remove(tfile.name)

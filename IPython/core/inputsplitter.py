@@ -55,12 +55,11 @@ Authors
 * Brian Granger
 """
 #-----------------------------------------------------------------------------
-#  Copyright (C) 2010-2011  The IPython Development Team
+#  Copyright (C) 2010  The IPython Development Team
 #
 #  Distributed under the terms of the BSD License.  The full license is in
 #  the file COPYING, distributed as part of this software.
 #-----------------------------------------------------------------------------
-from __future__ import print_function
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -92,9 +91,14 @@ ESC_SH_CAP = '!!'    # Send line to system shell and capture output
 ESC_HELP   = '?'     # Find information about object
 ESC_HELP2  = '??'    # Find extra-detailed information about object
 ESC_MAGIC  = '%'     # Call magic function
+ESC_MAGIC2 = '%%'    # Call cell-magic function
 ESC_QUOTE  = ','     # Split args on whitespace, quote each as string and call
 ESC_QUOTE2 = ';'     # Quote all args as a single string, call
 ESC_PAREN  = '/'     # Call first argument with rest of line as arguments
+
+ESC_SEQUENCES = [ESC_SHELL, ESC_SH_CAP, ESC_HELP ,\
+                 ESC_HELP2, ESC_MAGIC, ESC_MAGIC2,\
+                 ESC_QUOTE, ESC_QUOTE2, ESC_PAREN ]
 
 #-----------------------------------------------------------------------------
 # Utilities
@@ -111,7 +115,9 @@ dedent_re = re.compile('|'.join([
     r'^\s+raise\([^\)]*\).*$', # wacky raise with immediate open paren
     r'^\s+return(\s.*)?$', # normal return (+ space + other stuff, maybe)
     r'^\s+return\([^\)]*\).*$', # wacky return with immediate open paren
-    r'^\s+pass\s*$' # pass (optionally followed by trailing spaces)
+    r'^\s+pass\s*$', # pass (optionally followed by trailing spaces)
+    r'^\s+break\s*$', # break (optionally followed by trailing spaces)
+    r'^\s+continue\s*$', # continue (optionally followed by trailing spaces)
 ]))
 ini_spaces_re = re.compile(r'^([ \t\r\f\v]+)')
 
@@ -141,6 +147,46 @@ def num_ini_spaces(s):
     else:
         return 0
 
+def last_blank(src):
+    """Determine if the input source ends in a blank.
+
+    A blank is either a newline or a line consisting of whitespace.
+
+    Parameters
+    ----------
+    src : string
+      A single or multiline string.
+    """
+    if not src: return False
+    ll  = src.splitlines()[-1]
+    return (ll == '') or ll.isspace()
+
+
+last_two_blanks_re = re.compile(r'\n\s*\n\s*$', re.MULTILINE)
+last_two_blanks_re2 = re.compile(r'.+\n\s*\n\s+$', re.MULTILINE)
+
+def last_two_blanks(src):
+    """Determine if the input source ends in two blanks.
+
+    A blank is either a newline or a line consisting of whitespace.
+
+    Parameters
+    ----------
+    src : string
+      A single or multiline string.
+    """
+    if not src: return False
+    # The logic here is tricky: I couldn't get a regexp to work and pass all
+    # the tests, so I took a different approach: split the source by lines,
+    # grab the last two and prepend '###\n' as a stand-in for whatever was in
+    # the body before the last two lines.  Then, with that structure, it's
+    # possible to analyze with two regexps.  Not the most elegant solution, but
+    # it works.  If anyone tries to change this logic, make sure to validate
+    # the whole test suite first!
+    new_src = '\n'.join(['###\n'] + src.splitlines()[-2:])
+    return (bool(last_two_blanks_re.match(new_src)) or
+            bool(last_two_blanks_re2.match(new_src)) )
+
 
 def remove_comments(src):
     """Remove all comments from input source.
@@ -158,17 +204,17 @@ def remove_comments(src):
     """
 
     return re.sub('#.*', '', src)
-    
+
 def has_comment(src):
     """Indicate whether an input line has (i.e. ends in, or is) a comment.
-    
+
     This uses tokenize, so it can distinguish comments from # inside strings.
-    
+
     Parameters
     ----------
     src : string
       A single line input string.
-    
+
     Returns
     -------
     Boolean: True if source has a comment.
@@ -236,9 +282,9 @@ class InputSplitter(object):
     code = None
     # Input mode
     input_mode = 'line'
-    
+
     # Private attributes
-    
+
     # List with lines of input accumulated so far
     _buffer = None
     # Command compiler
@@ -247,7 +293,7 @@ class InputSplitter(object):
     _full_dedent = False
     # Boolean indicating whether the current block is complete
     _is_complete = None
-    
+
     def __init__(self, input_mode=None):
         """Create a new InputSplitter instance.
 
@@ -304,18 +350,18 @@ class InputSplitter(object):
         ----------
         lines : string
           One or more lines of Python input.
-        
+
         Returns
         -------
         is_complete : boolean
           True if the current input source (the result of the current input
-        plus prior inputs) forms a complete Python execution block.  Note that
-        this value is also stored as a private attribute (_is_complete), so it
-        can be queried at any time.
+          plus prior inputs) forms a complete Python execution block.  Note that
+          this value is also stored as a private attribute (``_is_complete``), so it
+          can be queried at any time.
         """
         if self.input_mode == 'cell':
             self.reset()
-        
+
         self._store(lines)
         source = self.source
 
@@ -325,7 +371,7 @@ class InputSplitter(object):
         self.code, self._is_complete = None, None
 
         # Honor termination lines properly
-        if source.rstrip().endswith('\\'):
+        if source.endswith('\\\n'):
             return False
 
         self._update_indent(lines)
@@ -356,11 +402,11 @@ class InputSplitter(object):
         SyntaxError is raised, or *all* of the following are true:
 
         1. The input compiles to a complete statement.
-        
+
         2. The indentation level is flush-left (because if we are indented,
            like inside a function definition or for loop, we need to keep
            reading new input).
-          
+
         3. There is one extra line consisting only of whitespace.
 
         Because of condition #3, this method should be used only by
@@ -420,7 +466,7 @@ class InputSplitter(object):
         ----------
         line : str
           A single new line of non-whitespace, non-comment Python input.
-          
+
         Returns
         -------
         indent_spaces : int
@@ -432,7 +478,7 @@ class InputSplitter(object):
         """
         indent_spaces = self.indent_spaces
         full_dedent = self._full_dedent
-        
+
         inisp = num_ini_spaces(line)
         if inisp < indent_spaces:
             indent_spaces = inisp
@@ -451,9 +497,9 @@ class InputSplitter(object):
         if indent_spaces < 0:
             indent_spaces = 0
             #print 'safety' # dbg
-            
+
         return indent_spaces, full_dedent
-    
+
     def _update_indent(self, lines):
         for line in remove_comments(lines).splitlines():
             if line and not line.isspace():
@@ -464,10 +510,10 @@ class InputSplitter(object):
 
         If input lines are not newline-terminated, a newline is automatically
         appended."""
-        
+
         if buffer is None:
             buffer = self._buffer
-            
+
         if lines.endswith('\n'):
             buffer.append(lines)
         else:
@@ -558,20 +604,23 @@ def _make_help_call(target, esc, lspace, next_input=None):
                 else 'psearch' if '*' in target \
                 else 'pinfo'
     arg = " ".join([method, target])
-    
-    if next_input:
-        tpl = '%sget_ipython().magic(%r, next_input=%r)'
-        return tpl % (lspace, arg, next_input)
-    else:
+    if next_input is None:
         return '%sget_ipython().magic(%r)' % (lspace, arg)
+    else:
+        return '%sget_ipython().set_next_input(%r);get_ipython().magic(%r)' % \
+           (lspace, next_input, arg)
+
 
 _initial_space_re = re.compile(r'\s*')
-_help_end_re = re.compile(r"""(%?
+
+_help_end_re = re.compile(r"""(%{0,2}
                               [a-zA-Z_*][\w*]*        # Variable name
                               (\.[a-zA-Z_*][\w*]*)*   # .etc.etc
                               )
                               (\?\??)$                # ? or ??""",
                               re.VERBOSE)
+
+
 def transform_help_end(line):
     """Translate lines with ?/?? at the end"""
     m = _help_end_re.search(line)
@@ -580,10 +629,10 @@ def transform_help_end(line):
     target = m.group(1)
     esc = m.group(3)
     lspace = _initial_space_re.match(line).group(0)
-    
+
     # If we're mid-command, put it back on the next prompt for the user.
     next_input = line.rstrip('?') if line.strip() != m.group(0) else None
-        
+
     return _make_help_call(target, esc, lspace, next_input)
 
 
@@ -600,7 +649,7 @@ class EscapedTransformer(object):
                ESC_QUOTE2 : self._tr_quote2,
                ESC_PAREN  : self._tr_paren }
         self.tr = tr
-        
+
     # Support for syntax transformations that use explicit escapes typed by the
     # user at the beginning of a line
     @staticmethod
@@ -621,7 +670,7 @@ class EscapedTransformer(object):
         # A naked help line should just fire the intro help screen
         if not line_info.line[1:]:
             return 'get_ipython().show_usage()'
-        
+
         return _make_help_call(line_info.ifun, line_info.esc, line_info.pre)
 
     @staticmethod
@@ -681,20 +730,31 @@ class IPythonInputSplitter(InputSplitter):
     # String with raw, untransformed input.
     source_raw = ''
 
+    # Flag to track when we're in the middle of processing a cell magic, since
+    # the logic has to change.  In that case, we apply no transformations at
+    # all.
+    processing_cell_magic = False
+
+    # Storage for all blocks of input that make up a cell magic
+    cell_magic_parts = []
+
     # Private attributes
-    
+
     # List with lines of raw input accumulated so far.
     _buffer_raw = None
 
     def __init__(self, input_mode=None):
-        InputSplitter.__init__(self, input_mode)
+        super(IPythonInputSplitter, self).__init__(input_mode)
         self._buffer_raw = []
-        
+        self._validate = True
+
     def reset(self):
         """Reset the input buffer and associated state."""
-        InputSplitter.reset(self)
+        super(IPythonInputSplitter, self).reset()
         self._buffer_raw[:] = []
         self.source_raw = ''
+        self.cell_magic_parts = []
+        self.processing_cell_magic = False
 
     def source_raw_reset(self):
         """Return input and raw source and perform a full reset.
@@ -704,8 +764,86 @@ class IPythonInputSplitter(InputSplitter):
         self.reset()
         return out, out_r
 
+    def push_accepts_more(self):
+        if self.processing_cell_magic:
+            return not self._is_complete
+        else:
+            return super(IPythonInputSplitter, self).push_accepts_more()
+
+    def _handle_cell_magic(self, lines):
+        """Process lines when they start with %%, which marks cell magics.
+        """
+        self.processing_cell_magic = True
+        first, _, body = lines.partition('\n')
+        magic_name, _, line = first.partition(' ')
+        magic_name = magic_name.lstrip(ESC_MAGIC)
+        # We store the body of the cell and create a call to a method that
+        # will use this stored value. This is ugly, but it's a first cut to
+        # get it all working, as right now changing the return API of our
+        # methods would require major refactoring.
+        self.cell_magic_parts = [body]
+        tpl = 'get_ipython()._run_cached_cell_magic(%r, %r)'
+        tlines = tpl % (magic_name, line)
+        self._store(tlines)
+        self._store(lines, self._buffer_raw, 'source_raw')
+        # We can actually choose whether to allow for single blank lines here
+        # during input for clients that use cell mode to decide when to stop
+        # pushing input (currently only the Qt console).
+        # My first implementation did that, and then I realized it wasn't
+        # consistent with the terminal behavior, so I've reverted it to one
+        # line.  But I'm leaving it here so we can easily test both behaviors,
+        # I kind of liked having full blank lines allowed in the cell magics...
+        #self._is_complete = last_two_blanks(lines)
+        self._is_complete = last_blank(lines)
+        return self._is_complete
+
+    def _line_mode_cell_append(self, lines):
+        """Append new content for a cell magic in line mode.
+        """
+        # Only store the raw input.  Lines beyond the first one are only only
+        # stored for history purposes; for execution the caller will grab the
+        # magic pieces from cell_magic_parts and will assemble the cell body
+        self._store(lines, self._buffer_raw, 'source_raw')
+        self.cell_magic_parts.append(lines)
+        # Find out if the last stored block has a whitespace line as its
+        # last line and also this line is whitespace, case in which we're
+        # done (two contiguous blank lines signal termination).  Note that
+        # the storage logic *enforces* that every stored block is
+        # newline-terminated, so we grab everything but the last character
+        # so we can have the body of the block alone.
+        last_block = self.cell_magic_parts[-1]
+        self._is_complete = last_blank(last_block) and lines.isspace()
+        return self._is_complete
+
+    def transform_cell(self, cell):
+        """Process and translate a cell of input.
+        """
+        self.reset()
+        self.push(cell)
+        return self.source_reset()
+
     def push(self, lines):
         """Push one or more lines of IPython input.
+
+        This stores the given lines and returns a status code indicating
+        whether the code forms a complete Python block or not, after processing
+        all input lines for special IPython syntax.
+
+        Any exceptions generated in compilation are swallowed, but if an
+        exception was produced, the method returns True.
+
+        Parameters
+        ----------
+        lines : string
+          One or more lines of Python input.
+
+        Returns
+        -------
+        is_complete : boolean
+          True if the current input source (the result of the current input
+        plus prior inputs) forms a complete Python execution block.  Note that
+        this value is also stored as a private attribute (_is_complete), so it
+        can be queried at any time.
         """
         if not lines:
             return super(IPythonInputSplitter, self).push(lines)
@@ -713,6 +851,18 @@ class IPythonInputSplitter(InputSplitter):
         # We must ensure all input is pure unicode
         lines = cast_unicode(lines, self.encoding)
 
+        # If the entire input block is a cell magic, return after handling it
+        # as the rest of the transformation logic should be skipped.
+        if lines.startswith('%%') and not \
+          (len(lines.splitlines()) == 1 and lines.strip().endswith('?')):
+            return self._handle_cell_magic(lines)
+
+        # In line mode, a cell magic can arrive in separate pieces
+        if self.input_mode == 'line' and self.processing_cell_magic:
+            return self._line_mode_cell_append(lines)
+
+        # The rest of the processing is for 'normal' content, i.e. IPython
+        # source that we process through our transformations pipeline.
         lines_list = lines.splitlines()
 
         transforms = [transform_ipy_prompt, transform_classic_prompt,
@@ -749,14 +899,13 @@ class IPythonInputSplitter(InputSplitter):
         # that this must be done *after* the reset() call that would otherwise
         # flush the buffer.
         self._store(lines, self._buffer_raw, 'source_raw')
-        
+
         try:
             push = super(IPythonInputSplitter, self).push
             buf = self._buffer
             for line in lines_list:
                 if self._is_complete or not buf or \
-                       (buf and (buf[-1].rstrip().endswith(':') or
-                                 buf[-1].rstrip().endswith(',')) ):
+                       (buf and buf[-1].rstrip().endswith((':', ','))):
                     for f in transforms:
                         line = f(line)
 

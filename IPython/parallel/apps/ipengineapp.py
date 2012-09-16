@@ -37,6 +37,7 @@ from IPython.parallel.apps.baseapp import (
     catch_config_error,
 )
 from IPython.zmq.log import EnginePUBHandler
+from IPython.zmq.ipkernel import Kernel, IPKernelApp
 from IPython.zmq.session import (
     Session, session_aliases, session_flags
 )
@@ -44,11 +45,11 @@ from IPython.zmq.session import (
 from IPython.config.configurable import Configurable
 
 from IPython.parallel.engine.engine import EngineFactory
-from IPython.parallel.engine.streamkernel import Kernel
-from IPython.parallel.util import disambiguate_url, asbytes
+from IPython.parallel.util import disambiguate_ip_address
 
 from IPython.utils.importstring import import_item
-from IPython.utils.traitlets import Bool, Unicode, Dict, List, Float
+from IPython.utils.py3compat import cast_bytes
+from IPython.utils.traitlets import Bool, Unicode, Dict, List, Float, Instance
 
 
 #-----------------------------------------------------------------------------
@@ -173,9 +174,17 @@ class IPEngineApp(BaseParallelApplication):
     log_url = Unicode('', config=True,
         help="""The URL for the iploggerapp instance, for forwarding
         logging to a central location.""")
+    
+    # an IPKernelApp instance, used to setup listening for shell frontends
+    kernel_app = Instance(IPKernelApp)
 
     aliases = Dict(aliases)
     flags = Dict(flags)
+    
+    @property
+    def kernel(self):
+        """allow access to the Kernel object, so I look like IPKernelApp"""
+        return self.engine.kernel
 
     def find_url_file(self):
         """Set the url file.
@@ -202,25 +211,77 @@ class IPEngineApp(BaseParallelApplication):
         with open(self.url_file) as f:
             d = json.loads(f.read())
         
-        if 'exec_key' in d:
-            config.Session.key = asbytes(d['exec_key'])
-        
+        # allow hand-override of location for disambiguation
+        # and ssh-server
         try:
             config.EngineFactory.location
         except AttributeError:
             config.EngineFactory.location = d['location']
         
-        d['url'] = disambiguate_url(d['url'], config.EngineFactory.location)
-        try:
-            config.EngineFactory.url
-        except AttributeError:
-            config.EngineFactory.url = d['url']
-        
         try:
             config.EngineFactory.sshserver
         except AttributeError:
-            config.EngineFactory.sshserver = d['ssh']
+            config.EngineFactory.sshserver = d.get('ssh')
         
+        location = config.EngineFactory.location
+        
+        proto, ip = d['interface'].split('://')
+        ip = disambiguate_ip_address(ip, location)
+        d['interface'] = '%s://%s' % (proto, ip)
+        
+        # DO NOT allow override of basic URLs, serialization, or exec_key
+        # JSON file takes top priority there
+        config.Session.key = cast_bytes(d['exec_key'])
+        
+        config.EngineFactory.url = d['interface'] + ':%i' % d['registration']
+        
+        config.Session.packer = d['pack']
+        config.Session.unpacker = d['unpack']
+        
+        self.log.debug("Config changed:")
+        self.log.debug("%r", config)
+        self.connection_info = d
+    
+    def bind_kernel(self, **kwargs):
+        """Promote engine to listening kernel, accessible to frontends."""
+        if self.kernel_app is not None:
+            return
+        
+        self.log.info("Opening ports for direct connections as an IPython kernel")
+        
+        kernel = self.kernel
+        
+        kwargs.setdefault('config', self.config)
+        kwargs.setdefault('log', self.log)
+        kwargs.setdefault('profile_dir', self.profile_dir)
+        kwargs.setdefault('session', self.engine.session)
+        
+        app = self.kernel_app = IPKernelApp(**kwargs)
+        
+        # allow IPKernelApp.instance():
+        IPKernelApp._instance = app
+        
+        app.init_connection_file()
+        # relevant contents of init_sockets:
+        
+        app.shell_port = app._bind_socket(kernel.shell_streams[0], app.shell_port)
+        app.log.debug("shell ROUTER Channel on port: %i", app.shell_port)
+        
+        app.iopub_port = app._bind_socket(kernel.iopub_socket, app.iopub_port)
+        app.log.debug("iopub PUB Channel on port: %i", app.iopub_port)
+        
+        kernel.stdin_socket = self.engine.context.socket(zmq.ROUTER)
+        app.stdin_port = app._bind_socket(kernel.stdin_socket, app.stdin_port)
+        app.log.debug("stdin ROUTER Channel on port: %i", app.stdin_port)
+        
+        # start the heartbeat, and log connection info:
+        
+        app.init_heartbeat()
+        
+        app.log_connection_info()
+        app.write_connection_file()
+        
+    
     def init_engine(self):
         # This is the working dir by now.
         sys.path.insert(0, '')
@@ -255,15 +316,22 @@ class IPEngineApp(BaseParallelApplication):
         
         
         try:
-            exec_lines = config.Kernel.exec_lines
+            exec_lines = config.IPKernelApp.exec_lines
         except AttributeError:
-            config.Kernel.exec_lines = []
-            exec_lines = config.Kernel.exec_lines
+            try:
+                exec_lines = config.InteractiveShellApp.exec_lines
+            except AttributeError:
+                exec_lines = config.IPKernelApp.exec_lines = []
+        try:
+            exec_files = config.IPKernelApp.exec_files
+        except AttributeError:
+            try:
+                exec_files = config.InteractiveShellApp.exec_files
+            except AttributeError:
+                exec_files = config.IPKernelApp.exec_files = []
         
         if self.startup_script:
-            enc = sys.getfilesystemencoding() or 'utf8'
-            cmd="execfile(%r)" % self.startup_script.encode(enc)
-            exec_lines.append(cmd)
+            exec_files.append(self.startup_script)
         if self.startup_command:
             exec_lines.append(self.startup_command)
 
@@ -271,7 +339,9 @@ class IPEngineApp(BaseParallelApplication):
         # shell_class = import_item(self.master_config.Global.shell_class)
         # print self.config
         try:
-            self.engine = EngineFactory(config=config, log=self.log)
+            self.engine = EngineFactory(config=config, log=self.log,
+                            connection_info=self.connection_info,
+                        )
         except:
             self.log.error("Couldn't start the Engine", exc_info=True)
             self.exit(1)
@@ -282,11 +352,9 @@ class IPEngineApp(BaseParallelApplication):
             context = self.engine.context
             lsock = context.socket(zmq.PUB)
             lsock.connect(self.log_url)
-            self.log.removeHandler(self._log_handler)
             handler = EnginePUBHandler(self.engine, lsock)
             handler.setLevel(self.log_level)
             self.log.addHandler(handler)
-            self._log_handler = handler
     
     def init_mpi(self):
         global mpi

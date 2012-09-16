@@ -22,8 +22,9 @@ Authors:
 import copy
 import logging
 import os
-import re
+import pipes
 import stat
+import sys
 import time
 
 # signal imports, handling various platforms, versions
@@ -58,10 +59,10 @@ from IPython.config.application import Application
 from IPython.config.configurable import LoggingConfigurable
 from IPython.utils.text import EvalFormatter
 from IPython.utils.traitlets import (
-    Any, Integer, CFloat, List, Unicode, Dict, Instance, HasTraits,
+    Any, Integer, CFloat, List, Unicode, Dict, Instance, HasTraits, CRegExp
 )
-from IPython.utils.path import get_ipython_module_path, get_home_dir
-from IPython.utils.process import find_cmd, pycmd2argv, FindCmdError
+from IPython.utils.path import get_home_dir
+from IPython.utils.process import find_cmd, FindCmdError
 
 from .win32support import forward_read_events
 
@@ -73,18 +74,13 @@ WINDOWS = os.name == 'nt'
 # Paths to the kernel apps
 #-----------------------------------------------------------------------------
 
+cmd = "from IPython.parallel.apps.%s import launch_new_instance; launch_new_instance()"
 
-ipcluster_cmd_argv = pycmd2argv(get_ipython_module_path(
-    'IPython.parallel.apps.ipclusterapp'
-))
+ipcluster_cmd_argv = [sys.executable, "-c", cmd % "ipclusterapp"]
 
-ipengine_cmd_argv = pycmd2argv(get_ipython_module_path(
-    'IPython.parallel.apps.ipengineapp'
-))
+ipengine_cmd_argv = [sys.executable, "-c", cmd % "ipengineapp"]
 
-ipcontroller_cmd_argv = pycmd2argv(get_ipython_module_path(
-    'IPython.parallel.apps.ipcontrollerapp'
-))
+ipcontroller_cmd_argv = [sys.executable, "-c", cmd % "ipcontrollerapp"]
 
 #-----------------------------------------------------------------------------
 # Base launchers and errors
@@ -588,7 +584,7 @@ class SSHLauncher(LocalProcessLauncher):
 
     def find_args(self):
         return self.ssh_cmd + self.ssh_args + [self.location] + \
-               self.program + self.program_args
+               list(map(pipes.quote, self.program + self.program_args))
     
     def _send_file(self, local, remote):
         """send a single file"""
@@ -655,7 +651,7 @@ class SSHClusterLauncher(SSHLauncher):
         If not specified, use calling profile, stripping out possible leading homedir.
         """)
 
-    def _remote_profie_dir_default(self):
+    def _remote_profile_dir_default(self):
         """turns /home/you/.ipython/profile_foo into .ipython/profile_foo
         """
         home = get_home_dir()
@@ -729,6 +725,9 @@ class SSHEngineSetLauncher(LocalEngineSetLauncher):
     engines = Dict(config=True,
         help="""dict of engines to launch.  This is a dict by hostname of ints,
         corresponding to the number of engines to start on that host.""")
+    
+    def _engine_cmd_default(self):
+        return ['ipengine']
     
     @property
     def engine_count(self):
@@ -826,7 +825,7 @@ def find_job_cmd():
 
 class WindowsHPCLauncher(BaseLauncher):
 
-    job_id_regexp = Unicode(r'\d+', config=True,
+    job_id_regexp = CRegExp(r'\d+', config=True,
         help="""A regular expression used to get the job id from the output of the
         submit_command. """
         )
@@ -857,7 +856,7 @@ class WindowsHPCLauncher(BaseLauncher):
 
     def parse_job_id(self, output):
         """Take the output of the submit command and return the job id."""
-        m = re.search(self.job_id_regexp, output)
+        m = self.job_id_regexp.search(output)
         if m is not None:
             job_id = m.group()
         else:
@@ -1006,7 +1005,7 @@ class BatchSystemLauncher(BaseLauncher):
         help="The name of the command line program used to submit jobs.")
     delete_command = List([''], config=True,
         help="The name of the command line program used to delete jobs.")
-    job_id_regexp = Unicode('', config=True,
+    job_id_regexp = CRegExp('', config=True,
         help="""A regular expression used to get the job id from the output of the
         submit_command.""")
     batch_template = Unicode('', config=True,
@@ -1026,10 +1025,10 @@ class BatchSystemLauncher(BaseLauncher):
 
     # not configurable, override in subclasses
     # PBS Job Array regex
-    job_array_regexp = Unicode('')
+    job_array_regexp = CRegExp('')
     job_array_template = Unicode('')
     # PBS Queue regex
-    queue_regexp = Unicode('')
+    queue_regexp = CRegExp('')
     queue_template = Unicode('')
     # The default batch template, override in subclasses
     default_template = Unicode('')
@@ -1060,7 +1059,7 @@ class BatchSystemLauncher(BaseLauncher):
 
     def parse_job_id(self, output):
         """Take the output of the submit command and return the job id."""
-        m = re.search(self.job_id_regexp, output)
+        m = self.job_id_regexp.search(output)
         if m is not None:
             job_id = m.group()
         else:
@@ -1083,16 +1082,14 @@ class BatchSystemLauncher(BaseLauncher):
 
             # add jobarray or queue lines to user-specified template
             # note that this is *only* when user did not specify a template.
-            regex = re.compile(self.job_array_regexp)
-            # print regex.search(self.batch_template)
-            if not regex.search(self.batch_template):
+            # print self.job_array_regexp.search(self.batch_template)
+            if not self.job_array_regexp.search(self.batch_template):
                 self.log.debug("adding job array settings to batch script")
                 firstline, rest = self.batch_template.split('\n',1)
                 self.batch_template = u'\n'.join([firstline, self.job_array_template, rest])
 
-            regex = re.compile(self.queue_regexp)
-            # print regex.search(self.batch_template)
-            if self.queue and not regex.search(self.batch_template):
+            # print self.queue_regexp.search(self.batch_template)
+            if self.queue and not self.queue_regexp.search(self.batch_template):
                 self.log.debug("adding PBS queue settings to batch script")
                 firstline, rest = self.batch_template.split('\n',1)
                 self.batch_template = u'\n'.join([firstline, self.queue_template, rest])
@@ -1129,13 +1126,13 @@ class PBSLauncher(BatchSystemLauncher):
         help="The PBS submit command ['qsub']")
     delete_command = List(['qdel'], config=True,
         help="The PBS delete command ['qsub']")
-    job_id_regexp = Unicode(r'\d+', config=True,
+    job_id_regexp = CRegExp(r'\d+', config=True,
         help="Regular expresion for identifying the job ID [r'\d+']")
 
     batch_file = Unicode(u'')
-    job_array_regexp = Unicode('#PBS\W+-t\W+[\w\d\-\$]+')
+    job_array_regexp = CRegExp('#PBS\W+-t\W+[\w\d\-\$]+')
     job_array_template = Unicode('#PBS -t 1-{n}')
-    queue_regexp = Unicode('#PBS\W+-q\W+\$?\w+')
+    queue_regexp = CRegExp('#PBS\W+-q\W+\$?\w+')
     queue_template = Unicode('#PBS -q {queue}')
 
 
@@ -1148,7 +1145,7 @@ class PBSControllerLauncher(PBSLauncher, BatchClusterAppMixin):
 #PBS -V
 #PBS -N ipcontroller
 %s --log-to-file --profile-dir="{profile_dir}" --cluster-id="{cluster_id}"
-"""%(' '.join(ipcontroller_cmd_argv)))
+"""%(' '.join(map(pipes.quote, ipcontroller_cmd_argv))))
 
 
     def start(self):
@@ -1164,7 +1161,7 @@ class PBSEngineSetLauncher(PBSLauncher, BatchClusterAppMixin):
 #PBS -V
 #PBS -N ipengine
 %s --profile-dir="{profile_dir}" --cluster-id="{cluster_id}"
-"""%(' '.join(ipengine_cmd_argv)))
+"""%(' '.join(map(pipes.quote,ipengine_cmd_argv))))
 
     def start(self, n):
         """Start n engines by profile or profile_dir."""
@@ -1174,9 +1171,9 @@ class PBSEngineSetLauncher(PBSLauncher, BatchClusterAppMixin):
 
 class SGELauncher(PBSLauncher):
     """Sun GridEngine is a PBS clone with slightly different syntax"""
-    job_array_regexp = Unicode('#\$\W+\-t')
+    job_array_regexp = CRegExp('#\$\W+\-t')
     job_array_template = Unicode('#$ -t 1-{n}')
-    queue_regexp = Unicode('#\$\W+-q\W+\$?\w+')
+    queue_regexp = CRegExp('#\$\W+-q\W+\$?\w+')
     queue_template = Unicode('#$ -q {queue}')
 
 class SGEControllerLauncher(SGELauncher, BatchClusterAppMixin):
@@ -1188,7 +1185,7 @@ class SGEControllerLauncher(SGELauncher, BatchClusterAppMixin):
 #$ -S /bin/sh
 #$ -N ipcontroller
 %s --log-to-file --profile-dir="{profile_dir}" --cluster-id="{cluster_id}"
-"""%(' '.join(ipcontroller_cmd_argv)))
+"""%(' '.join(map(pipes.quote, ipcontroller_cmd_argv))))
 
     def start(self):
         """Start the controller by profile or profile_dir."""
@@ -1202,7 +1199,7 @@ class SGEEngineSetLauncher(SGELauncher, BatchClusterAppMixin):
 #$ -S /bin/sh
 #$ -N ipengine
 %s --profile-dir="{profile_dir}" --cluster-id="{cluster_id}"
-"""%(' '.join(ipengine_cmd_argv)))
+"""%(' '.join(map(pipes.quote, ipengine_cmd_argv))))
 
     def start(self, n):
         """Start n engines by profile or profile_dir."""
@@ -1218,13 +1215,13 @@ class LSFLauncher(BatchSystemLauncher):
                           help="The PBS submit command ['bsub']")
     delete_command = List(['bkill'], config=True,
                           help="The PBS delete command ['bkill']")
-    job_id_regexp = Unicode(r'\d+', config=True,
+    job_id_regexp = CRegExp(r'\d+', config=True,
                             help="Regular expresion for identifying the job ID [r'\d+']")
 
     batch_file = Unicode(u'')
-    job_array_regexp = Unicode('#BSUB[ \t]-J+\w+\[\d+-\d+\]')
+    job_array_regexp = CRegExp('#BSUB[ \t]-J+\w+\[\d+-\d+\]')
     job_array_template = Unicode('#BSUB -J ipengine[1-{n}]')
-    queue_regexp = Unicode('#BSUB[ \t]+-q[ \t]+\w+')
+    queue_regexp = CRegExp('#BSUB[ \t]+-q[ \t]+\w+')
     queue_template = Unicode('#BSUB -q {queue}')
 
     def start(self, n):
@@ -1256,7 +1253,7 @@ class LSFControllerLauncher(LSFLauncher, BatchClusterAppMixin):
     #BSUB -oo ipcontroller.o.%%J
     #BSUB -eo ipcontroller.e.%%J
     %s --log-to-file --profile-dir="{profile_dir}" --cluster-id="{cluster_id}"
-    """%(' '.join(ipcontroller_cmd_argv)))
+    """%(' '.join(map(pipes.quote,ipcontroller_cmd_argv))))
 
     def start(self):
         """Start the controller by profile or profile_dir."""
@@ -1271,7 +1268,7 @@ class LSFEngineSetLauncher(LSFLauncher, BatchClusterAppMixin):
     #BSUB -oo ipengine.o.%%J
     #BSUB -eo ipengine.e.%%J
     %s --profile-dir="{profile_dir}" --cluster-id="{cluster_id}"
-    """%(' '.join(ipengine_cmd_argv)))
+    """%(' '.join(map(pipes.quote, ipengine_cmd_argv))))
 
     def start(self, n):
         """Start n engines by profile or profile_dir."""

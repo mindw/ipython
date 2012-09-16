@@ -186,6 +186,8 @@ def display_latex(*objs, **kwargs):
 
 def display_json(*objs, **kwargs):
     """Display the JSON representation of an object.
+    
+    Note that not many frontends support displaying JSON.
 
     Parameters
     ----------
@@ -421,8 +423,11 @@ class Javascript(DisplayObject):
 class Image(DisplayObject):
 
     _read_flags = 'rb'
+    _FMT_JPEG = u'jpeg'
+    _FMT_PNG = u'png'
+    _ACCEPTABLE_EMBEDDINGS = [_FMT_JPEG, _FMT_PNG]
 
-    def __init__(self, data=None, url=None, filename=None, format=u'png', embed=False):
+    def __init__(self, data=None, url=None, filename=None, format=u'png', embed=None, width=None, height=None):
         """Create a display an PNG/JPEG image given raw data.
 
         When this object is returned by an expression or passed to the
@@ -441,26 +446,54 @@ class Image(DisplayObject):
             The format of the image data (png/jpeg/jpg). If a filename or URL is given
             for format will be inferred from the filename extension.
         embed : bool
-            Should the image data be embedded in the notebook using a data URI (True)
-            or be loaded using an <img> tag. Set this to True if you want the image
-            to be viewable later with no internet connection. If a filename is given
-            embed is always set to True.
+            Should the image data be embedded using a data URI (True) or be
+            loaded using an <img> tag. Set this to True if you want the image
+            to be viewable later with no internet connection in the notebook.
+
+            Default is `True`, unless the keyword argument `url` is set, then
+            default value is `False`.
+
+            Note that QtConsole is not able to display images if `embed` is set to `False`
+        width : int
+            Width to which to constrain the image in html
+        height : int
+            Height to which to constrain the image in html
+
+        Examples
+        --------
+        # embed implicitly True, works in qtconsole and notebook
+        Image('http://www.google.fr/images/srpr/logo3w.png')
+
+        # embed implicitly False, does not works in qtconsole but works in notebook if
+        # internet connection available
+        Image(url='http://www.google.fr/images/srpr/logo3w.png')
+
         """
         if filename is not None:
             ext = self._find_ext(filename)
         elif url is not None:
             ext = self._find_ext(url)
+        elif data is None:
+            raise ValueError("No image data found. Expecting filename, url, or data.")
         elif data.startswith('http'):
             ext = self._find_ext(data)
         else:
             ext = None
+
         if ext is not None:
+            format = ext.lower()
             if ext == u'jpg' or ext == u'jpeg':
-                format = u'jpeg'
+                format = self._FMT_JPEG
             if ext == u'png':
-                format = u'png'
+                format = self._FMT_PNG
+
         self.format = unicode(format).lower()
-        self.embed = True if filename is not None else embed
+        self.embed = embed if embed is not None else (url is None)
+
+        if self.embed and self.format not in self._ACCEPTABLE_EMBEDDINGS:
+            raise ValueError("Cannot embed the '%s' image format" % (self.format))
+        self.width = width
+        self.height = height
         super(Image, self).__init__(data=data, url=url, filename=filename)
 
     def reload(self):
@@ -470,7 +503,12 @@ class Image(DisplayObject):
 
     def _repr_html_(self):
         if not self.embed:
-            return u'<img src="%s" />' % self.url
+            width = height = ''
+            if self.width:
+                width = ' width="%d"' % self.width
+            if self.height:
+                height = ' height="%d"' % self.height
+            return u'<img src="%s"%s%s/>' % (self.url, width, height)
 
     def _repr_png_(self):
         if self.embed and self.format == u'png':

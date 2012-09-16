@@ -17,6 +17,14 @@
 
 import sys, os
 
+ON_RTD = os.environ.get('READTHEDOCS', None) == 'True'
+
+if ON_RTD:
+    # Mock the presence of matplotlib, which we don't have on RTD
+    # see
+    # http://read-the-docs.readthedocs.org/en/latest/faq.html
+    tags.add('rtd')
+    
 # If your extensions are in another directory, add it here. If the directory
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
@@ -36,9 +44,9 @@ execfile('../../IPython/core/release.py',iprelease)
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
-    # 'matplotlib.sphinxext.mathmpl',
+    'matplotlib.sphinxext.mathmpl',
     'matplotlib.sphinxext.only_directives',
-    # 'matplotlib.sphinxext.plot_directive',
+    'matplotlib.sphinxext.plot_directive',
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
     'inheritance_diagram',
@@ -47,6 +55,11 @@ extensions = [
     'numpydoc',  # to preprocess docstrings
     'github',  # for easy GitHub links
 ]
+
+if ON_RTD:
+    # Remove extensions not currently supported on RTD
+    extensions.remove('matplotlib.sphinxext.only_directives')
+    extensions.remove('ipython_directive')
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

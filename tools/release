@@ -49,7 +49,7 @@ cd(ipdir)
 sh('./setup.py register')
 
 # Upload all files
-sh('./setup.py sdist --formats=gztar,zip upload')
+sh(sdists + ' upload')
 cd(distdir)
 print( 'Uploading distribution files...')
 

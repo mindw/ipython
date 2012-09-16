@@ -16,29 +16,25 @@
 
 from __future__ import with_statement
 from __future__ import absolute_import
+from __future__ import print_function
 
 import __builtin__ as builtin_mod
 import __future__
 import abc
 import ast
 import atexit
-import codeop
-import inspect
 import os
 import re
 import runpy
 import sys
 import tempfile
 import types
-
-try:
-    from contextlib import nested
-except:
-    from IPython.utils.nested_context import nested
+import urllib
+from io import open as io_open
 
 from IPython.config.configurable import SingletonConfigurable
 from IPython.core import debugger, oinspect
-from IPython.core import history as ipcorehist
+from IPython.core import magic
 from IPython.core import page
 from IPython.core import prefilter
 from IPython.core import shadowns
@@ -50,37 +46,38 @@ from IPython.core.compilerop import CachingCompiler
 from IPython.core.display_trap import DisplayTrap
 from IPython.core.displayhook import DisplayHook
 from IPython.core.displaypub import DisplayPublisher
-from IPython.core.error import TryNext, UsageError
+from IPython.core.error import UsageError
 from IPython.core.extensions import ExtensionManager
 from IPython.core.fakemodule import FakeModule, init_fakemod_dict
 from IPython.core.formatters import DisplayFormatter
 from IPython.core.history import HistoryManager
-from IPython.core.inputsplitter import IPythonInputSplitter
+from IPython.core.inputsplitter import IPythonInputSplitter, ESC_MAGIC, ESC_MAGIC2
 from IPython.core.logger import Logger
 from IPython.core.macro import Macro
-from IPython.core.magic import Magic
 from IPython.core.payload import PayloadManager
 from IPython.core.plugin import PluginManager
-from IPython.core.prefilter import PrefilterManager, ESC_MAGIC
+from IPython.core.prefilter import PrefilterManager
 from IPython.core.profiledir import ProfileDir
 from IPython.core.pylabtools import pylab_activate
 from IPython.core.prompts import PromptManager
+from IPython.lib.latextools import LaTeXTool
 from IPython.utils import PyColorize
 from IPython.utils import io
 from IPython.utils import py3compat
+from IPython.utils import openpy
 from IPython.utils.doctestreload import doctest_reload
-from IPython.utils.io import ask_yes_no, rprint
+from IPython.utils.io import ask_yes_no
 from IPython.utils.ipstruct import Struct
-from IPython.utils.path import get_home_dir, get_ipython_dir, HomeDirError
+from IPython.utils.path import get_home_dir, get_ipython_dir, get_py_filename, unquote_filename
 from IPython.utils.pickleshare import PickleShareDB
 from IPython.utils.process import system, getoutput
 from IPython.utils.strdispatch import StrDispatch
 from IPython.utils.syspathcontext import prepended_to_syspath
-from IPython.utils.text import (num_ini_spaces, format_screen, LSString, SList,
+from IPython.utils.text import (format_screen, LSString, SList,
                                 DollarFormatter)
 from IPython.utils.traitlets import (Integer, CBool, CaselessStrEnum, Enum,
                                      List, Unicode, Instance, Type)
-from IPython.utils.warn import warn, error, fatal
+from IPython.utils.warn import warn, error
 import IPython.core.hooks
 
 #-----------------------------------------------------------------------------
@@ -192,7 +189,7 @@ class ReadlineNoRecord(object):
 # Main IPython class
 #-----------------------------------------------------------------------------
 
-class InteractiveShell(SingletonConfigurable, Magic):
+class InteractiveShell(SingletonConfigurable):
     """An enhanced, interactive shell for Python."""
 
     _instance = None
@@ -262,11 +259,12 @@ class InteractiveShell(SingletonConfigurable, Magic):
         """
     )
     disable_failing_post_execute = CBool(False, config=True,
-        help="Don't call post-execute functions that have failed in the past."""
+        help="Don't call post-execute functions that have failed in the past."
     )
     display_formatter = Instance(DisplayFormatter)
     displayhook_class = Type(DisplayHook)
     display_pub_class = Type(DisplayPublisher)
+    data_pub_class = None
 
     exit_now = CBool(False)
     exiter = Instance(ExitAutocall)
@@ -367,6 +365,12 @@ class InteractiveShell(SingletonConfigurable, Magic):
             '"\C-u": unix-line-discard',
         ], allow_none=False, config=True)
 
+    ast_node_interactivity = Enum(['all', 'last', 'last_expr', 'none'],
+                                  default_value='last_expr', config=True, 
+                                  help="""
+        'all', 'last', 'last_expr' or 'none', specifying which nodes should be
+        run interactively (displaying output from expressions).""")
+
     # TODO: this part of prompt management should be moved to the frontends.
     # Use custom TraitTypes that convert '0'->'' and '\\n'->'\n'
     separate_in = SeparateUnicode('\n', config=True)
@@ -385,6 +389,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
     plugin_manager = Instance('IPython.core.plugin.PluginManager')
     payload_manager = Instance('IPython.core.payload.PayloadManager')
     history_manager = Instance('IPython.core.history.HistoryManager')
+    magics_manager = Instance('IPython.core.magic.MagicsManager')
 
     profile_dir = Instance('IPython.core.application.ProfileDir')
     @property
@@ -396,6 +401,9 @@ class InteractiveShell(SingletonConfigurable, Magic):
 
     # Private interface
     _post_execute = Instance(dict)
+
+    # Tracks any GUI loop loaded for pylab
+    pylab_gui_select = None
 
     def __init__(self, config=None, ipython_dir=None, profile_dir=None,
                  user_module=None, user_ns=None,
@@ -435,8 +443,6 @@ class InteractiveShell(SingletonConfigurable, Magic):
         self.init_encoding()
         self.init_prefilter()
 
-        Magic.__init__(self, self)
-
         self.init_syntax_highlighting()
         self.init_hooks()
         self.init_pushd_popd_magic()
@@ -446,11 +452,6 @@ class InteractiveShell(SingletonConfigurable, Magic):
         self.init_logger()
         self.init_alias()
         self.init_builtins()
-
-        # pre_config_initialization
-
-        # The next section should contain everything that was in ipmaker.
-        self.init_logstart()
 
         # The following was in post_config_initialization
         self.init_inspector()
@@ -477,9 +478,12 @@ class InteractiveShell(SingletonConfigurable, Magic):
         self.init_prompts()
         self.init_display_formatter()
         self.init_display_pub()
+        self.init_data_pub()
         self.init_displayhook()
         self.init_reload_doctest()
+        self.init_latextool()
         self.init_magics()
+        self.init_logstart()
         self.init_pdb()
         self.init_extension_manager()
         self.init_plugin_manager()
@@ -593,11 +597,11 @@ class InteractiveShell(SingletonConfigurable, Magic):
         """Initialize logging in case it was requested at the command line.
         """
         if self.logappend:
-            self.magic_logstart(self.logappend + ' append')
+            self.magic('logstart %s append' % self.logappend)
         elif self.logfile:
-            self.magic_logstart(self.logfile)
+            self.magic('logstart %s' % self.logfile)
         elif self.logstart:
-            self.magic_logstart()
+            self.magic('logstart')
 
     def init_builtins(self):
         # A single, static flag that we set to True.  Its presence indicates
@@ -637,6 +641,11 @@ class InteractiveShell(SingletonConfigurable, Magic):
     def init_prompts(self):
         self.prompt_manager = PromptManager(shell=self, config=self.config)
         self.configurables.append(self.prompt_manager)
+        # Set system prompts, so that scripts can decide if they are running
+        # interactively.
+        sys.ps1 = 'In : '
+        sys.ps2 = '...: '
+        sys.ps3 = 'Out: '
 
     def init_display_formatter(self):
         self.display_formatter = DisplayFormatter(config=self.config)
@@ -645,6 +654,13 @@ class InteractiveShell(SingletonConfigurable, Magic):
     def init_display_pub(self):
         self.display_pub = self.display_pub_class(config=self.config)
         self.configurables.append(self.display_pub)
+
+    def init_data_pub(self):
+        if not self.data_pub_class:
+            self.data_pub = None
+            return
+        self.data_pub = self.data_pub_class(config=self.config)
+        self.configurables.append(self.data_pub)
 
     def init_displayhook(self):
         # Initialize displayhook, set in/out prompts and printing system
@@ -665,7 +681,13 @@ class InteractiveShell(SingletonConfigurable, Magic):
             doctest_reload()
         except ImportError:
             warn("doctest module does not exist.")
-    
+
+    def init_latextool(self):
+        """Configure LaTeXTool."""
+        cfg = LaTeXTool.instance(config=self.config)
+        if cfg not in self.configurables:
+            self.configurables.append(cfg)
+
     def init_virtualenv(self):
         """Add a virtualenv to sys.path so the user can import modules from it.
         This isn't perfect: it doesn't use the Python interpreter with which the
@@ -712,6 +734,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
         self._orig_sys_module_state['stderr'] = sys.stderr
         self._orig_sys_module_state['excepthook'] = sys.excepthook
         self._orig_sys_modules_main_name = self.user_module.__name__
+        self._orig_sys_modules_main_mod = sys.modules.get(self.user_module.__name__)
 
     def restore_sys_module_state(self):
         """Restore the state of the sys module."""
@@ -721,7 +744,8 @@ class InteractiveShell(SingletonConfigurable, Magic):
         except AttributeError:
             pass
         # Reset what what done in self.init_sys_modules
-        sys.modules[self.user_module.__name__] = self._orig_sys_modules_main_name
+        if self._orig_sys_modules_main_mod is not None:
+            sys.modules[self._orig_sys_modules_main_name] = self._orig_sys_modules_main_mod
 
     #-------------------------------------------------------------------------
     # Things related to hooks
@@ -767,8 +791,8 @@ class InteractiveShell(SingletonConfigurable, Magic):
 
         dp = getattr(self.hooks, name, None)
         if name not in IPython.core.hooks.__all__:
-            print "Warning! Hook '%s' is not one of %s" % \
-                  (name, IPython.core.hooks.__all__ )
+            print("Warning! Hook '%s' is not one of %s" % \
+                  (name, IPython.core.hooks.__all__ ))
         if not dp:
             dp = IPython.core.hooks.CommandChainDispatcher()
 
@@ -876,7 +900,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
     def _set_call_pdb(self,val):
 
         if val not in (0,1,False,True):
-            raise ValueError,'new call_pdb value must be boolean'
+            raise ValueError('new call_pdb value must be boolean')
 
         # store value in instance
         self._call_pdb = val
@@ -1289,7 +1313,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
                 try:
                     vdict[name] = eval(name, cf.f_globals, cf.f_locals)
                 except:
-                    print ('Could not get variable %s from %s' %
+                    print('Could not get variable %s from %s' %
                            (name,cf.f_code.co_name))
         else:
             raise ValueError('variables must be a dict/str/list/tuple')
@@ -1335,7 +1359,9 @@ class InteractiveShell(SingletonConfigurable, Magic):
         """
         oname = oname.strip()
         #print '1- oname: <%r>' % oname  # dbg
-        if not py3compat.isidentifier(oname.lstrip(ESC_MAGIC), dotted=True):
+        if not oname.startswith(ESC_MAGIC) and \
+            not oname.startswith(ESC_MAGIC2) and \
+            not py3compat.isidentifier(oname, dotted=True):
             return dict(found=False)
 
         alias_ns = None
@@ -1393,9 +1419,18 @@ class InteractiveShell(SingletonConfigurable, Magic):
 
         # Try to see if it's magic
         if not found:
-            if oname.startswith(ESC_MAGIC):
-                oname = oname[1:]
-            obj = getattr(self,'magic_'+oname,None)
+            obj = None
+            if oname.startswith(ESC_MAGIC2):
+                oname = oname.lstrip(ESC_MAGIC2)
+                obj = self.find_cell_magic(oname)
+            elif oname.startswith(ESC_MAGIC):
+                oname = oname.lstrip(ESC_MAGIC)
+                obj = self.find_line_magic(oname)
+            else:
+                # search without prefix, so run? will find %run?
+                obj = self.find_line_magic(oname)
+                if obj is None:
+                    obj = self.find_cell_magic(oname)
             if obj is not None:
                 found = True
                 ospace = 'IPython internal'
@@ -1442,7 +1477,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
         """Generic interface to the inspector system.
 
         This function is meant to be called by pdef, pdoc & friends."""
-        info = self._object_find(oname)
+        info = self._object_find(oname, namespaces)
         if info.found:
             pmethod = getattr(self.inspector, meth)
             formatter = format_screen if info.ismagic else None
@@ -1453,7 +1488,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
             else:
                 pmethod(info.obj, oname)
         else:
-            print 'Object `%s` not found.' % oname
+            print('Object `%s` not found.' % oname)
             return 'not found'  # so callers can take other action
 
     def object_inspect(self, oname, detail_level=0):
@@ -1547,10 +1582,10 @@ class InteractiveShell(SingletonConfigurable, Magic):
                "The custom exceptions must be given AS A TUPLE."
 
         def dummy_handler(self,etype,value,tb,tb_offset=None):
-            print '*** Simple custom exception handler ***'
-            print 'Exception type :',etype
-            print 'Exception value:',value
-            print 'Traceback      :',tb
+            print('*** Simple custom exception handler ***')
+            print('Exception type :',etype)
+            print('Exception value:',value)
+            print('Traceback      :',tb)
             #print 'Source code    :','\n'.join(self.buffer)
         
         def validate_stb(stb):
@@ -1591,11 +1626,11 @@ class InteractiveShell(SingletonConfigurable, Magic):
                 except:
                     # clear custom handler immediately
                     self.set_custom_exc((), None)
-                    print >> io.stderr, "Custom TB Handler failed, unregistering"
+                    print("Custom TB Handler failed, unregistering", file=io.stderr)
                     # show the exception in handler first
                     stb = self.InteractiveTB.structured_traceback(*sys.exc_info())
-                    print >> io.stdout, self.InteractiveTB.stb2text(stb)
-                    print >> io.stdout, "The original exception:"
+                    print(self.InteractiveTB.stb2text(stb), file=io.stdout)
+                    print("The original exception:", file=io.stdout)
                     stb = self.InteractiveTB.structured_traceback(
                                             (etype,value,tb), tb_offset=tb_offset
                     )
@@ -1680,31 +1715,34 @@ class InteractiveShell(SingletonConfigurable, Magic):
             except ValueError:
                 self.write_err('No traceback available to show.\n')
                 return
-
-            if etype is SyntaxError:
+            
+            if issubclass(etype, SyntaxError):
                 # Though this won't be called by syntax errors in the input
                 # line, there may be SyntaxError cases with imported code.
                 self.showsyntaxerror(filename)
             elif etype is UsageError:
                 self.write_err("UsageError: %s" % value)
             else:
-                if etype in self.custom_exceptions:
-                    stb = self.CustomTB(etype, value, tb, tb_offset)
+                if exception_only:
+                    stb = ['An exception has occurred, use %tb to see '
+                           'the full traceback.\n']
+                    stb.extend(self.InteractiveTB.get_exception_only(etype,
+                                                                     value))
                 else:
-                    if exception_only:
-                        stb = ['An exception has occurred, use %tb to see '
-                               'the full traceback.\n']
-                        stb.extend(self.InteractiveTB.get_exception_only(etype,
-                                                                         value))
-                    else:
+                    try:
+                        # Exception classes can customise their traceback - we
+                        # use this in IPython.parallel for exceptions occurring
+                        # in the engines. This should return a list of strings.
+                        stb = value._render_traceback_()
+                    except Exception:
                         stb = self.InteractiveTB.structured_traceback(etype,
-                                                value, tb, tb_offset=tb_offset)
+                                            value, tb, tb_offset=tb_offset)
 
-                        self._showtraceback(etype, value, stb)
-                        if self.call_pdb:
-                            # drop into debugger
-                            self.debugger(force=True)
-                        return
+                    self._showtraceback(etype, value, stb)
+                    if self.call_pdb:
+                        # drop into debugger
+                        self.debugger(force=True)
+                    return
 
                 # Actually show the traceback
                 self._showtraceback(etype, value, stb)
@@ -1718,7 +1756,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
         Subclasses may override this method to put the traceback on a different
         place, like a side channel.
         """
-        print >> io.stdout, self.InteractiveTB.stb2text(stb)
+        print(self.InteractiveTB.stb2text(stb), file=io.stdout)
 
     def showsyntaxerror(self, filename=None):
         """Display the syntax error that just occurred.
@@ -1731,7 +1769,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
         """
         etype, value, last_traceback = self._get_exc_info()
 
-        if filename and etype is SyntaxError:
+        if filename and issubclass(etype, SyntaxError):
             try:
                 value.filename = filename
             except:
@@ -1771,7 +1809,6 @@ class InteractiveShell(SingletonConfigurable, Magic):
             self.readline_no_record = no_op_context
             self.set_readline_completer = no_op
             self.set_custom_completer = no_op
-            self.set_completer_frame = no_op
             if self.readline_use:
                 warn('Readline services not available or not loaded.')
         else:
@@ -1991,16 +2028,121 @@ class InteractiveShell(SingletonConfigurable, Magic):
     #-------------------------------------------------------------------------
 
     def init_magics(self):
+        from IPython.core import magics as m
+        self.magics_manager = magic.MagicsManager(shell=self,
+                                   confg=self.config,
+                                   user_magics=m.UserMagics(self))
+        self.configurables.append(self.magics_manager)
+
+        # Expose as public API from the magics manager
+        self.register_magics = self.magics_manager.register
+        self.register_magic_function = self.magics_manager.register_function
+        self.define_magic = self.magics_manager.define_magic
+
+        self.register_magics(m.AutoMagics, m.BasicMagics, m.CodeMagics,
+            m.ConfigMagics, m.DeprecatedMagics, m.DisplayMagics, m.ExecutionMagics,
+            m.ExtensionMagics, m.HistoryMagics, m.LoggingMagics,
+            m.NamespaceMagics, m.OSMagics, m.PylabMagics, m.ScriptMagics,
+        )
+
+        # Register Magic Aliases
+        mman = self.magics_manager
+        mman.register_alias('ed', 'edit')
+        mman.register_alias('hist', 'history')
+        mman.register_alias('rep', 'recall')
+
         # FIXME: Move the color initialization to the DisplayHook, which
         # should be split into a prompt manager and displayhook. We probably
         # even need a centralize colors management object.
-        self.magic_colors(self.colors)
-        # History was moved to a separate module
-        from IPython.core import history
-        history.init_ipython(self)
+        self.magic('colors %s' % self.colors)
 
-    def magic(self, arg_s, next_input=None):
-        """Call a magic function by name.
+    def run_line_magic(self, magic_name, line):
+        """Execute the given line magic.
+
+        Parameters
+        ----------
+        magic_name : str
+          Name of the desired magic function, without '%' prefix.
+
+        line : str
+          The rest of the input line as a single string.
+        """
+        fn = self.find_line_magic(magic_name)
+        if fn is None:
+            cm = self.find_cell_magic(magic_name)
+            etpl = "Line magic function `%%%s` not found%s."
+            extra = '' if cm is None else (' (But cell magic `%%%%%s` exists, '
+                                    'did you mean that instead?)' % magic_name )
+            error(etpl % (magic_name, extra))
+        else:
+            # Note: this is the distance in the stack to the user's frame.
+            # This will need to be updated if the internal calling logic gets
+            # refactored, or else we'll be expanding the wrong variables.
+            stack_depth = 2
+            magic_arg_s = self.var_expand(line, stack_depth)
+            # Put magic args in a list so we can call with f(*a) syntax
+            args = [magic_arg_s]
+            kwargs = {}
+            # Grab local namespace if we need it:
+            if getattr(fn, "needs_local_scope", False):
+                kwargs['local_ns'] = sys._getframe(stack_depth).f_locals
+            with self.builtin_trap:
+                result = fn(*args,**kwargs)
+            return result
+
+    def run_cell_magic(self, magic_name, line, cell):
+        """Execute the given cell magic.
+        
+        Parameters
+        ----------
+        magic_name : str
+          Name of the desired magic function, without '%' prefix.
+
+        line : str
+          The rest of the first input line as a single string.
+
+        cell : str
+          The body of the cell as a (possibly multiline) string.
+        """
+        fn = self.find_cell_magic(magic_name)
+        if fn is None:
+            lm = self.find_line_magic(magic_name)
+            etpl = "Cell magic function `%%%%%s` not found%s."
+            extra = '' if lm is None else (' (But line magic `%%%s` exists, '
+                                    'did you mean that instead?)' % magic_name )
+            error(etpl % (magic_name, extra))
+        else:
+            # Note: this is the distance in the stack to the user's frame.
+            # This will need to be updated if the internal calling logic gets
+            # refactored, or else we'll be expanding the wrong variables.
+            stack_depth = 2
+            magic_arg_s = self.var_expand(line, stack_depth)
+            with self.builtin_trap:
+                result = fn(magic_arg_s, cell)
+            return result
+
+    def find_line_magic(self, magic_name):
+        """Find and return a line magic by name.
+
+        Returns None if the magic isn't found."""
+        return self.magics_manager.magics['line'].get(magic_name)
+
+    def find_cell_magic(self, magic_name):
+        """Find and return a cell magic by name.
+
+        Returns None if the magic isn't found."""
+        return self.magics_manager.magics['cell'].get(magic_name)
+
+    def find_magic(self, magic_name, magic_kind='line'):
+        """Find and return a magic of the given type by name.
+
+        Returns None if the magic isn't found."""
+        return self.magics_manager.magics[magic_kind].get(magic_name)
+
+    def magic(self, arg_s):
+        """DEPRECATED. Use run_line_magic() instead.
+
+        Call a magic function by name.
 
         Input: a string containing the name of the magic function to call and
         any additional arguments to be passed to the magic.
@@ -2016,45 +2158,10 @@ class InteractiveShell(SingletonConfigurable, Magic):
         valid Python code you can type at the interpreter, including loops and
         compound statements.
         """
-        # Allow setting the next input - this is used if the user does `a=abs?`.
-        # We do this first so that magic functions can override it.
-        if next_input:
-            self.set_next_input(next_input)
-
-        magic_name, _, magic_args = arg_s.partition(' ')
+        # TODO: should we issue a loud deprecation warning here?
+        magic_name, _, magic_arg_s = arg_s.partition(' ')
         magic_name = magic_name.lstrip(prefilter.ESC_MAGIC)
-
-        fn = getattr(self,'magic_'+magic_name,None)
-        if fn is None:
-            error("Magic function `%s` not found." % magic_name)
-        else:
-            magic_args = self.var_expand(magic_args,1)
-            # Grab local namespace if we need it:
-            if getattr(fn, "needs_local_scope", False):
-                self._magic_locals = sys._getframe(1).f_locals
-            with self.builtin_trap:
-                result = fn(magic_args)
-            # Ensure we're not keeping object references around:
-            self._magic_locals = {}
-            return result
-
-    def define_magic(self, magicname, func):
-        """Expose own function as magic function for ipython
-        
-        Example::
-
-          def foo_impl(self,parameter_s=''):
-              'My very own magic!. (Use docstrings, IPython reads them).'
-              print 'Magic function. Passed parameter is between < >:'
-              print '<%s>' % parameter_s
-              print 'The self object is:', self
-
-          ip.define_magic('foo',foo_impl)
-        """
-        im = types.MethodType(func,self)
-        old = getattr(self, "magic_" + magicname, None)
-        setattr(self, "magic_" + magicname, im)
-        return old
+        return self.run_line_magic(magic_name, magic_arg_s)
 
     #-------------------------------------------------------------------------
     # Things related to macros
@@ -2105,7 +2212,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
         # we explicitly do NOT return the subprocess status code, because
         # a non-None value would trigger :func:`sys.displayhook` calls.
         # Instead, we store the exit_code in user_ns.
-        self.user_ns['_exit_code'] = system(self.var_expand(cmd, depth=2))
+        self.user_ns['_exit_code'] = system(self.var_expand(cmd, depth=1))
 
     def system_raw(self, cmd):
         """Call the given cmd in a subprocess using os.system
@@ -2115,7 +2222,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
         cmd : str
           Command to execute.
         """
-        cmd = self.var_expand(cmd, depth=2)
+        cmd = self.var_expand(cmd, depth=1)
         # protect os.system from UNC paths on Windows, which it can't handle:
         if sys.platform == 'win32':
             from IPython.utils._process_win32 import AvoidUNCPath
@@ -2136,7 +2243,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
     # use piped system by default, because it is better behaved
     system = system_piped
 
-    def getoutput(self, cmd, split=True):
+    def getoutput(self, cmd, split=True, depth=0):
         """Get output (possibly including stderr) from a subprocess.
 
         Parameters
@@ -2145,17 +2252,20 @@ class InteractiveShell(SingletonConfigurable, Magic):
           Command to execute (can not end in '&', as background processes are
           not supported.
         split : bool, optional
-
           If True, split the output into an IPython SList.  Otherwise, an
           IPython LSString is returned.  These are objects similar to normal
           lists and strings, with a few convenience attributes for easier
           manipulation of line-based output.  You can use '?' on them for
           details.
-          """
+        depth : int, optional
+          How many frames above the caller are the local variables which should
+          be expanded in the command string? The default (0) assumes that the
+          expansion variables are in the stack frame calling this function.
+        """
         if cmd.rstrip().endswith('&'):
             # this is *far* from a rigorous test
             raise OSError("Background processes not supported.")
-        out = getoutput(self.var_expand(cmd, depth=2))
+        out = getoutput(self.var_expand(cmd, depth=depth+1))
         if split:
             out = SList(out.splitlines())
         else:
@@ -2228,9 +2338,9 @@ class InteractiveShell(SingletonConfigurable, Magic):
             # plain ascii works better w/ pyreadline, on some machines, so
             # we use it and only print uncolored rewrite if we have unicode
             rw = str(rw)
-            print >> io.stdout, rw
+            print(rw, file=io.stdout)
         except UnicodeEncodeError:
-            print "------> " + cmd
+            print("------> " + cmd)
 
     #-------------------------------------------------------------------------
     # Things related to extracting values/expressions from kernel and user_ns
@@ -2345,9 +2455,12 @@ class InteractiveShell(SingletonConfigurable, Magic):
         dname = os.path.dirname(fname)
 
         with prepended_to_syspath(dname):
+            # Ensure that __file__ is always defined to match Python behavior
+            save_fname = self.user_ns.get('__file__',None)
+            self.user_ns['__file__'] = fname
             try:
                 py3compat.execfile(fname,*where)
-            except SystemExit, status:
+            except SystemExit as status:
                 # If the call was made with 0 or None exit status (sys.exit(0)
                 # or sys.exit() ), don't bother showing a traceback, as both of
                 # these are considered normal by the OS:
@@ -2365,6 +2478,8 @@ class InteractiveShell(SingletonConfigurable, Magic):
                 if kw['raise_exceptions']:
                     raise
                 self.showtraceback()
+            finally:
+                self.user_ns['__file__'] = save_fname
 
     def safe_execfile_ipy(self, fname):
         """Like safe_execfile, but for .ipy files with IPython syntax.
@@ -2391,6 +2506,9 @@ class InteractiveShell(SingletonConfigurable, Magic):
         dname = os.path.dirname(fname)
 
         with prepended_to_syspath(dname):
+            # Ensure that __file__ is always defined to match Python behavior
+            save_fname = self.user_ns.get('__file__',None)
+            self.user_ns['__file__'] = fname
             try:
                 with open(fname) as thefile:
                     # self.run_cell currently captures all exceptions
@@ -2401,6 +2519,8 @@ class InteractiveShell(SingletonConfigurable, Magic):
             except:
                 self.showtraceback()
                 warn('Unknown failure executing file: <%s>' % fname)
+            finally:
+                self.user_ns['__file__'] = save_fname
 
     def safe_run_module(self, mod_name, where):
         """A safe version of runpy.run_module().
@@ -2424,7 +2544,14 @@ class InteractiveShell(SingletonConfigurable, Magic):
             self.showtraceback()
             warn('Unknown failure executing module: <%s>' % mod_name)
 
-    def run_cell(self, raw_cell, store_history=False):
+    def _run_cached_cell_magic(self, magic_name, line):
+        """Special method to call a cell magic with the data stored in self.
+        """
+        cell = self._current_cell_magic_body
+        self._current_cell_magic_body = None
+        return self.run_cell_magic(magic_name, line, cell)
+
+    def run_cell(self, raw_cell, store_history=False, silent=False):
         """Run a complete IPython cell.
 
         Parameters
@@ -2435,12 +2562,25 @@ class InteractiveShell(SingletonConfigurable, Magic):
           If True, the raw and translated cell will be stored in IPython's
           history. For user code calling back into IPython's machinery, this
           should be set to False.
+        silent : bool
+          If True, avoid side-effects, such as implicit displayhooks and
+          and logging.  silent=True forces store_history=False.
         """
         if (not raw_cell) or raw_cell.isspace():
             return
+        
+        if silent:
+            store_history = False
 
-        for line in raw_cell.splitlines():
-            self.input_splitter.push(line)
+        self.input_splitter.push(raw_cell)
+
+        # Check for cell magics, which leave state behind.  This interface is
+        # ugly, we need to do something cleaner later...  Now the logic is
+        # simply that the input_splitter remembers if there was a cell magic,
+        # and in that case we grab the cell body.
+        if self.input_splitter.cell_magic_parts:
+            self._current_cell_magic_body = \
+                               ''.join(self.input_splitter.cell_magic_parts)
         cell = self.input_splitter.source_reset()
 
         with self.builtin_trap:
@@ -2462,8 +2602,8 @@ class InteractiveShell(SingletonConfigurable, Magic):
             if store_history:
                 self.history_manager.store_inputs(self.execution_count,
                                                   cell, raw_cell)
-
-            self.logger.log(cell, raw_cell)
+            if not silent:
+                self.logger.log(cell, raw_cell)
 
             if not prefilter_failed:
                 # don't run if prefilter failed
@@ -2471,7 +2611,8 @@ class InteractiveShell(SingletonConfigurable, Magic):
 
                 with self.display_trap:
                     try:
-                        code_ast = self.compile.ast_parse(cell, filename=cell_name)
+                        code_ast = self.compile.ast_parse(cell,
+                                                          filename=cell_name)
                     except IndentationError:
                         self.showindentationerror()
                         if store_history:
@@ -2483,28 +2624,32 @@ class InteractiveShell(SingletonConfigurable, Magic):
                         if store_history:
                             self.execution_count += 1
                         return None
-
+                    
+                    interactivity = "none" if silent else self.ast_node_interactivity
                     self.run_ast_nodes(code_ast.body, cell_name,
-                                       interactivity="last_expr")
-
+                                       interactivity=interactivity)
+                    
                     # Execute any registered post-execution functions.
-                    for func, status in self._post_execute.iteritems():
+                    # unless we are silent
+                    post_exec = [] if silent else self._post_execute.iteritems()
+                    
+                    for func, status in post_exec:
                         if self.disable_failing_post_execute and not status:
                             continue
                         try:
                             func()
                         except KeyboardInterrupt:
-                            print >> io.stderr, "\nKeyboardInterrupt"
+                            print("\nKeyboardInterrupt", file=io.stderr)
                         except Exception:
                             # register as failing:
                             self._post_execute[func] = False
                             self.showtraceback()
-                            print >> io.stderr, '\n'.join([
+                            print('\n'.join([
                                 "post-execution function %r produced an error." % func,
                                 "If this problem persists, you can disable failing post-exec functions with:",
                                 "",
                                 "    get_ipython().disable_failing_post_execute = True"
-                            ])
+                            ]), file=io.stderr)
 
         if store_history:
             # Write output to the database. Does nothing unless
@@ -2566,7 +2711,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
 
             # Flush softspace
             if softspace(sys.stdout, 0):
-                print
+                print()
 
         except:
             # It's possible to have exceptions raised here, typically by
@@ -2637,7 +2782,7 @@ class InteractiveShell(SingletonConfigurable, Magic):
     def enable_gui(self, gui=None):
         raise NotImplementedError('Implement enable_gui in a subclass')
 
-    def enable_pylab(self, gui=None, import_all=True):
+    def enable_pylab(self, gui=None, import_all=True, welcome_message=False):
         """Activate pylab support at runtime.
 
         This turns on support for matplotlib, preloads into the interactive
@@ -2657,14 +2802,14 @@ class InteractiveShell(SingletonConfigurable, Magic):
           make sense in all contexts, for example a terminal ipython can't
           display figures inline.
         """
-
+        from IPython.core.pylabtools import mpl_runner
         # We want to prevent the loading of pylab to pollute the user's
         # namespace as shown by the %who* magics, so we execute the activation
         # code in an empty namespace, and we update *both* user_ns and
         # user_ns_hidden with this information.
         ns = {}
         try:
-            gui = pylab_activate(ns, gui, import_all, self)
+            gui = pylab_activate(ns, gui, import_all, self, welcome_message=welcome_message)
         except KeyError:
             error("Backend %r not supported" % gui)
             return
@@ -2673,7 +2818,8 @@ class InteractiveShell(SingletonConfigurable, Magic):
         # Now we must activate the gui pylab wants to use, and fix %run to take
         # plot updates into account
         self.enable_gui(gui)
-        self.magic_run = self._pylab_magic_run
+        self.magics_manager.registry['ExecutionMagics'].default_runner = \
+        mpl_runner(self.safe_execfile)
 
     #-------------------------------------------------------------------------
     # Utilities
@@ -2690,9 +2836,11 @@ class InteractiveShell(SingletonConfigurable, Magic):
         """
         ns = self.user_ns.copy()
         ns.update(sys._getframe(depth+1).f_locals)
-        ns.pop('self', None)
         try:
-            cmd = formatter.format(cmd, **ns)
+            # We have to use .vformat() here, because 'self' is a valid and common
+            # name, and expanding **ns for .format() would make it collide with
+            # the 'self' argument of the method.
+            cmd = formatter.vformat(cmd, args=[], kwargs=ns)
         except Exception:
             # if formatter couldn't format, just let it go untransformed
             pass
@@ -2737,20 +2885,51 @@ class InteractiveShell(SingletonConfigurable, Magic):
         """Show a usage message"""
         page.page(IPython.core.usage.interactive_usage)
 
-    def find_user_code(self, target, raw=True):
-        """Get a code string from history, file, or a string or macro.
+    def extract_input_lines(self, range_str, raw=False):
+        """Return as a string a set of input history slices.
+
+        Parameters
+        ----------
+        range_str : string
+            The set of slices is given as a string, like "~5/6-~4/2 4:8 9",
+            since this function is for use by magic functions which get their
+            arguments as strings. The number before the / is the session
+            number: ~n goes n back from the current session.
+
+        Optional Parameters:
+          - raw(False): by default, the processed input is used.  If this is
+          true, the raw input history is used instead.
+
+        Note that slices can be called with two notations:
+
+        N:M -> standard python form, means including items N...(M-1).
+
+        N-M -> include items N..M (closed endpoint)."""
+        lines = self.history_manager.get_range_by_str(range_str, raw=raw)
+        return "\n".join(x for _, _, x in lines)
+
+    def find_user_code(self, target, raw=True, py_only=False, skip_encoding_cookie=True):
+        """Get a code string from history, file, url, or a string or macro.
 
         This is mainly used by magic functions.
 
         Parameters
         ----------
+
         target : str
+
           A string specifying code to retrieve. This will be tried respectively
-          as: ranges of input history (see %history for syntax), a filename, or
-          an expression evaluating to a string or Macro in the user namespace.
+          as: ranges of input history (see %history for syntax), url,
+          correspnding .py file, filename, or an expression evaluating to a
+          string or Macro in the user namespace.
+
         raw : bool
           If true (default), retrieve raw history. Has no effect on the other
           retrieval mechanisms.
+
+        py_only : bool (default False)
+          Only try to fetch python code, do not try alternative methods to decode file
+          if unicode fails.
 
         Returns
         -------
@@ -2763,14 +2942,37 @@ class InteractiveShell(SingletonConfigurable, Magic):
         code = self.extract_input_lines(target, raw=raw)  # Grab history
         if code:
             return code
-        if os.path.isfile(target):                        # Read file
-            return open(target, "r").read()
+        utarget = unquote_filename(target)
+        try:
+            if utarget.startswith(('http://', 'https://')):
+                return openpy.read_py_url(utarget, skip_encoding_cookie=skip_encoding_cookie)
+        except UnicodeDecodeError:
+            if not py_only :
+                response = urllib.urlopen(target)
+                return response.read().decode('latin1')
+            raise ValueError(("'%s' seem to be unreadable.") % utarget)
+
+        potential_target = [target]
+        try :
+            potential_target.insert(0,get_py_filename(target))
+        except IOError:
+            pass
+
+        for tgt in potential_target :
+            if os.path.isfile(tgt):                        # Read file
+                try :
+                    return openpy.read_py_file(tgt, skip_encoding_cookie=skip_encoding_cookie)
+                except UnicodeDecodeError :
+                    if not py_only :
+                        with io_open(tgt,'r', encoding='latin1') as f :
+                            return f.read()
+                    raise ValueError(("'%s' seem to be unreadable.") % target)
 
         try:                                              # User namespace
             codeobj = eval(target, self.user_ns)
         except Exception:
-            raise ValueError(("'%s' was not found in history, as a file, nor in"
-                                " the user namespace.") % target)
+            raise ValueError(("'%s' was not found in history, as a file, url, "
+                                "nor in the user namespace.") % target)
         if isinstance(codeobj, basestring):
             return codeobj
         elif isinstance(codeobj, Macro):

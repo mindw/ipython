@@ -6,19 +6,22 @@ import sys
 import re
 import types
 
+from .encoding import DEFAULT_ENCODING
+
 orig_open = open
 
 def no_code(x, encoding=None):
     return x
 
 def decode(s, encoding=None):
-    encoding = encoding or sys.stdin.encoding or sys.getdefaultencoding()
+    encoding = encoding or DEFAULT_ENCODING
     return s.decode(encoding, "replace")
 
 def encode(u, encoding=None):
-    encoding = encoding or sys.stdin.encoding or sys.getdefaultencoding()
+    encoding = encoding or DEFAULT_ENCODING
     return u.encode(encoding, "replace")
-    
+
+
 def cast_unicode(s, encoding=None):
     if isinstance(s, bytes):
         return decode(s, encoding)
@@ -70,7 +73,8 @@ if sys.version_info[0] >= 3:
     
     def execfile(fname, glob, loc=None):
         loc = loc if (loc is not None) else glob
-        exec compile(open(fname, 'rb').read(), fname, 'exec') in glob, loc
+        with open(fname, 'rb') as f:
+            exec compile(f.read(), fname, 'exec') in glob, loc
     
     # Refactor print statements in doctests.
     _print_statement_re = re.compile(r"\bprint (?P<expr>.*)$", re.MULTILINE)

@@ -29,6 +29,11 @@ class RichIPythonWidget(IPythonWidget):
     # RichIPythonWidget protected class variables.
     _payload_source_plot = 'IPython.zmq.pylab.backend_payload.add_plot_payload'
     _jpg_supported = Bool(False)
+
+    # Used to determine whether a given html export attempt has already
+    # displayed a warning about being unable to convert a png to svg.
+    _svg_warning_displayed = False
+
     #---------------------------------------------------------------------------
     # 'object' interface
     #---------------------------------------------------------------------------
@@ -50,6 +55,20 @@ class RichIPythonWidget(IPythonWidget):
         # it is not always supported.
         _supported_format = map(str, QtGui.QImageReader.supportedImageFormats())
         self._jpg_supported = 'jpeg' in _supported_format
+
+
+    #---------------------------------------------------------------------------
+    # 'ConsoleWidget' public interface overides
+    #---------------------------------------------------------------------------
+
+    def export_html(self):
+        """ Shows a dialog to export HTML/XML in various formats.
+
+        Overridden in order to reset the _svg_warning_displayed flag prior
+        to the export running.
+        """
+        self._svg_warning_displayed = False
+        super(RichIPythonWidget, self).export_html()
 
 
     #---------------------------------------------------------------------------
@@ -96,17 +115,17 @@ class RichIPythonWidget(IPythonWidget):
         """
         if not self._hidden and self._is_from_this_session(msg):
             content = msg['content']
-            prompt_number = content['execution_count']
+            prompt_number = content.get('execution_count', 0)
             data = content['data']
-            if data.has_key('image/svg+xml'):
+            if 'image/svg+xml' in data:
                 self._pre_image_append(msg, prompt_number)
                 self._append_svg(data['image/svg+xml'], True)
                 self._append_html(self.output_sep2, True)
-            elif data.has_key('image/png'):
+            elif 'image/png' in data:
                 self._pre_image_append(msg, prompt_number)
                 self._append_png(decodestring(data['image/png'].encode('ascii')), True)
                 self._append_html(self.output_sep2, True)
-            elif data.has_key('image/jpeg') and self._jpg_supported:
+            elif 'image/jpeg' in data and self._jpg_supported:
                 self._pre_image_append(msg, prompt_number)
                 self._append_jpg(decodestring(data['image/jpeg'].encode('ascii')), True)
                 self._append_html(self.output_sep2, True)
@@ -123,17 +142,17 @@ class RichIPythonWidget(IPythonWidget):
             metadata = msg['content']['metadata']
             # Try to use the svg or html representations.
             # FIXME: Is this the right ordering of things to try?
-            if data.has_key('image/svg+xml'):
+            if 'image/svg+xml' in data:
                 self.log.debug("display: %s", msg.get('content', ''))
                 svg = data['image/svg+xml']
                 self._append_svg(svg, True)
-            elif data.has_key('image/png'):
+            elif 'image/png' in data:
                 self.log.debug("display: %s", msg.get('content', ''))
                 # PNG data is base64 encoded as it passes over the network
                 # in a JSON structure so we decode it.
                 png = decodestring(data['image/png'].encode('ascii'))
                 self._append_png(png, True)
-            elif data.has_key('image/jpeg') and self._jpg_supported:
+            elif 'image/jpeg' in data and self._jpg_supported:
                 self.log.debug("display: %s", msg.get('content', ''))
                 jpg = decodestring(data['image/jpeg'].encode('ascii'))
                 self._append_jpg(jpg, True)
@@ -231,7 +250,18 @@ class RichIPythonWidget(IPythonWidget):
             try:
                 svg = str(self._name_to_svg_map[match.group("name")])
             except KeyError:
-                return "<b>Couldn't find image %s</b>" % match.group("name")
+                if not self._svg_warning_displayed:
+                    QtGui.QMessageBox.warning(self, 'Error converting PNG to SVG.',
+                        'Cannot convert a PNG to SVG.  To fix this, add this '
+                        'to your ipython config:\n\n'
+                        '\tc.InlineBackendConfig.figure_format = \'svg\'\n\n'
+                        'And regenerate the figures.',
+                                              QtGui.QMessageBox.Ok)
+                    self._svg_warning_displayed = True
+                return ("<b>Cannot convert a PNG to SVG.</b>  "
+                        "To fix this, add this to your config: "
+                        "<span>c.InlineBackendConfig.figure_format = 'svg'</span> "
+                        "and regenerate the figures.")
 
             # Not currently checking path, because it's tricky to find a
             # cross-browser way to embed external SVG images (e.g., via

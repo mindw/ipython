@@ -109,6 +109,7 @@ class SQLiteDB(BaseDB):
     # the ordered list of column names
     _keys = List(['msg_id' ,
             'header' ,
+            'metadata',
             'content',
             'buffers',
             'submitted',
@@ -119,6 +120,7 @@ class SQLiteDB(BaseDB):
             'resubmitted',
             'received',
             'result_header' ,
+            'result_metadata',
             'result_content' ,
             'result_buffers' ,
             'queue' ,
@@ -131,6 +133,7 @@ class SQLiteDB(BaseDB):
     # sqlite datatypes for checking that db is current format
     _types = Dict({'msg_id' : 'text' ,
             'header' : 'dict text',
+            'metadata' : 'dict text',
             'content' : 'dict text',
             'buffers' : 'bufs blob',
             'submitted' : 'timestamp',
@@ -138,9 +141,10 @@ class SQLiteDB(BaseDB):
             'engine_uuid' : 'text',
             'started' : 'timestamp',
             'completed' : 'timestamp',
-            'resubmitted' : 'timestamp',
+            'resubmitted' : 'text',
             'received' : 'timestamp',
             'result_header' : 'dict text',
+            'result_metadata' : 'dict text',
             'result_content' : 'dict text',
             'result_buffers' : 'bufs blob',
             'queue' : 'text',
@@ -226,19 +230,21 @@ class SQLiteDB(BaseDB):
             # isolation_level = None)#,
              cached_statements=64)
         # print dir(self._db)
-        first_table = self.table
+        first_table = previous_table = self.table
         i=0
         while not self._check_table():
             i+=1
             self.table = first_table+'_%i'%i
             self.log.warn(
                 "Table %s exists and doesn't match db format, trying %s"%
-                (first_table,self.table)
+                (previous_table, self.table)
             )
+            previous_table = self.table
 
         self._db.execute("""CREATE TABLE IF NOT EXISTS %s
                 (msg_id text PRIMARY KEY,
                 header dict text,
+                metadata dict text,
                 content dict text,
                 buffers bufs blob,
                 submitted timestamp,
@@ -246,9 +252,10 @@ class SQLiteDB(BaseDB):
                 engine_uuid text,
                 started timestamp,
                 completed timestamp,
-                resubmitted timestamp,
+                resubmitted text,
                 received timestamp,
                 result_header dict text,
+                result_metadata dict text,
                 result_content dict text,
                 result_buffers bufs blob,
                 queue text,
