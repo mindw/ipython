@@ -52,6 +52,14 @@ table.highlighttable td {
     padding: 0 0.5em 0 0.5em;
 }
 
+.field-list th {
+    white-space: nowrap;
+}
+
+span.option  {
+    white-space: nowrap;
+}
+
 cite, code, tt {
     font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
     font-size: 0.95em;
