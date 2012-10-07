@@ -30,7 +30,7 @@ large blocking requests or database actions in the Hub do not have the ability t
 job submission and results.
 
 Registration (``ROUTER``)
-***********************
+*************************
 
 The first function of the Hub is to facilitate and monitor connections of clients
 and engines. Both client and engine registration are handled by the same socket, so only
@@ -121,7 +121,7 @@ Message type : ``unregistration_notification``::
 
 
 Client Queries (``ROUTER``)
-*************************
+***************************
 
 The hub monitors and logs all queue traffic, so that clients can retrieve past
 results or monitor pending tasks. This information may reside in-memory on the Hub, or

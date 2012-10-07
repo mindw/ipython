@@ -71,7 +71,7 @@ Parts of the IPython core that still need to be Configurable:
 * Anything else.
 
 Process management for :mod:`IPython.parallel`
---------------------------------------------
+----------------------------------------------
 
 A few things need to be done to improve how processes are started
 up and managed for the parallel computing side of IPython:

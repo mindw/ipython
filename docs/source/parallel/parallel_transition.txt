@@ -78,7 +78,7 @@ The flags for execution have also changed.  Previously, there was only `block` d
 to wait for results.  This remains, but due to the addition of fully non-copying sends of 
 arrays and buffers, there is also a `track` flag, which instructs PyZMQ to produce a :class:`MessageTracker` that will let you know when it is safe again to edit arrays in-place.
 
-The result of a non-blocking call to `apply` is now an AsyncResult_ object, described below.
+The result of a non-blocking call to `apply` is now an :py:class:`AsyncResult` object, described below.
 
 MultiEngine to DirectView
 =========================
@@ -205,15 +205,15 @@ PendingResults to AsyncResults
 ------------------------------
 
 With the departure from Twisted, we no longer have the :class:`Deferred` class for representing
-unfinished results. For this, we have an AsyncResult object, based on the object of the same
+unfinished results. For this, we have an :py:class:`AsyncResult` object, based on the object of the same
 name in the built-in :mod:`multiprocessing.pool` module. Our version provides a superset of that
 interface.
 
 However, unlike in IPython.kernel, we do not have PendingDeferred, PendingResult, or TaskResult
-objects. Simply this one object, the AsyncResult. Every asynchronous (`block=False`) call
+objects. Simply this one object, the :py:class:`AsyncResult`. Every asynchronous (`block=False`) call
 returns one.
 
-The basic methods of an AsyncResult are:
+The basic methods of an :py:class:`AsyncResult` are:
 
 .. sourcecode:: python
 
@@ -240,6 +240,6 @@ result.
 
 .. seealso::
 
-    :ref:`AsyncResult details <AsyncResult>`
+    :py:class:`AsyncResult details <AsyncResult>`
 
 

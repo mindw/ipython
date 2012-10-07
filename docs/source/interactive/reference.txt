@@ -113,7 +113,7 @@ the same name::
       /home/fperez
 
 The following uses the builtin ``timeit`` in cell mode::
-  
+
   In [10]: %%timeit x = range(10000)
       ...: min(x)
       ...: max(x)
@@ -123,7 +123,7 @@ The following uses the builtin ``timeit`` in cell mode::
 In this case, ``x = range(10000)`` is called as the line argument, and the
 block with ``min(x)`` and ``max(x)`` is called as the cell body.  The
 ``timeit`` magic receives both.
-  
+
 If you have 'automagic' enabled (as it by default), you don't need to type in
 the single ``%`` explicitly for line magics; IPython will scan its internal
 list of magic functions and call one if it exists. With automagic on you can
@@ -134,7 +134,7 @@ then just type ``cd mydir`` to go to directory 'mydir'::
 
 Note that cell magics *always* require an explicit ``%%`` prefix, automagic
 calling only works for line magics.
-      
+
 The automagic system has the lowest possible precedence in name searches, so
 defining an identifier with the same name as an existing magic function will
 shadow it for automagic use. You can still access the shadowed magic function
@@ -166,7 +166,7 @@ An example (with automagic on) should clarify all this:
     /home/fperez/ipython
 
 Defining your own magics
-~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 There are two main ways to define your own magic functions: from standalone
 functions and by inheriting from a base class provided by IPython:
@@ -181,11 +181,11 @@ magic, a cell one and one that works in both modes, using just plain functions:
 
     from IPython.core.magic import (register_line_magic, register_cell_magic,
                                     register_line_cell_magic)
-		
+
     @register_line_magic
     def lmagic(line):
         "my line magic"
-	return line
+    return line
 
     @register_cell_magic
     def cmagic(line, cell):
@@ -195,11 +195,11 @@ magic, a cell one and one that works in both modes, using just plain functions:
     @register_line_cell_magic
     def lcmagic(line, cell=None):
         "Magic that works both as %lcmagic and as %%lcmagic"
-	if cell is None:
-	    print "Called as line magic"
-	    return line
-	else:
-	    print "Called as cell magic"
+    if cell is None:
+        print "Called as line magic"
+        return line
+    else:
+        print "Called as cell magic"
             return line, cell
 
     # We delete these to avoid name conflicts for automagic to work
@@ -210,9 +210,9 @@ You can also create magics of all three kinds by inheriting from the
 :class:`IPython.core.magic.Magics` class.  This lets you create magics that can
 potentially hold state in between calls, and that have full access to the main
 IPython object:
-    
+
 .. sourcecode:: python
-		
+
     # This code can be put in any Python module, it does not require IPython
     # itself to be running already.  It only creates the magics subclass but
     # doesn't instantiate it yet.
@@ -259,16 +259,16 @@ additional state, then you should always call the parent constructor and
 instantiate the class yourself before registration:
 
 .. sourcecode:: python
-		
+
     @magics_class
     class StatefulMagics(Magics):
         "Magics that hold additional state"
-	
+
         def __init__(self, shell, data):
             # You must call the parent constructor
             super(StatefulMagics, self).__init__(shell)
             self.data = data
-        
+
         # etc...
 
     # This class must then be registered with a manually created instance,
@@ -276,7 +276,7 @@ instantiate the class yourself before registration:
     ip = get_ipython()
     magics = StatefulMagics(ip, some_data)
     ip.register_magics(magics)
-    
+
 
 In earlier versions, IPython had an API for the creation of line magics (cell
 magics did not exist at the time) that required you to create functions with a
@@ -289,7 +289,7 @@ follows:
 
     def func(self, line):
         print "Line magic called with line:", line
-	print "IPython object:", self.shell
+    print "IPython object:", self.shell
 
     ip = get_ipython()
     # Declare this function as the magic %mycommand
@@ -366,7 +366,7 @@ behavior IPython uses, and then how to change it to suit your preferences.
 
 
 Command line completion
-+++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^
 
 At any time, hitting TAB will complete any available python commands or
 variable names, and show you a list of the possible completions if
@@ -375,7 +375,7 @@ current directory if no python names match what you've typed so far.
 
 
 Search command history
-++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^
 
 IPython provides two ways for searching through previous input and thus
 reduce the need for repetitive typing:
@@ -390,7 +390,7 @@ reduce the need for repetitive typing:
 
 
 Persistent command history across sessions
-++++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 IPython will save your input history when it leaves and reload it next
 time you restart it. By default, the history file is named
@@ -401,7 +401,7 @@ example.
 
 
 Autoindent
-++++++++++
+^^^^^^^^^^
 
 IPython can recognize lines ending in ':' and indent the next line,
 while also un-indenting automatically after 'raise' or 'return'.
@@ -430,13 +430,13 @@ Note that there are 4 spaces between the quote marks after "M-i" above.
     magic function %autoindent allows you to toggle it on/off at runtime. You
     can also disable it permanently on in your :file:`ipython_config.py` file
     (set TerminalInteractiveShell.autoindent=False).
-    
+
     If you want to paste multiple lines in the terminal, it is recommended that
     you use ``%paste``.
 
 
 Customizing readline behavior
-+++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 All these features are based on the GNU readline library, which has an
 extremely customizable interface. Normally, readline is configured via a
@@ -698,7 +698,7 @@ meant to allow less typing for common situations.
 
 
 Automatic parentheses
-+++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^
 
 Callable objects (i.e. functions, methods, etc) can be invoked like this
 (notice the commas between the arguments)::
@@ -736,7 +736,7 @@ the new command line preceded by ->. e.g.::
 
 
 Automatic quoting
-+++++++++++++++++
+^^^^^^^^^^^^^^^^^
 
 You can force automatic quoting of a function's arguments by using ','
 or ';' as the first character of a line. For example::
@@ -933,8 +933,8 @@ starting point for writing your own extensions.
 Pasting of code starting with Python or IPython prompts
 -------------------------------------------------------
 
-IPython is smart enough to filter  out input prompts, be they plain Python ones
-(``>>>`` and ``...``) or IPython ones (``In [N]:`` and `` ...:``).  You can
+IPython is smart enough to filter out input prompts, be they plain Python ones
+(``>>>`` and ``...``) or IPython ones (``In [N]:`` and ``\ ...:``).  You can
 therefore copy and paste from existing interactive sessions without worry.
 
 The following is a 'screenshot' of how things work, copying an example from the
@@ -1065,7 +1065,7 @@ PyQt nor PySide work.
     Note that this means for ETS 4 to work with PyQt4, ``QT_API`` *must* be set
     to work with IPython's qt integration, because otherwise PyQt4 will be
     loaded in an incompatible mode.
-    
+
     It also means that you must *not* have ``QT_API`` set if you want to
     use ``--gui=qt`` with code that requires PyQt4 API v1.
 

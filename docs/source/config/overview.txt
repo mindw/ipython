@@ -440,7 +440,7 @@ to your config file. Key/Value arguments *always* take a value, separated by '='
 and no spaces.
 
 Common Arguments
-****************
+================
 
 Since the strictness and verbosity of the KVLoader above are not ideal for everyday
 use, common arguments can be specified as flags_ or aliases_.

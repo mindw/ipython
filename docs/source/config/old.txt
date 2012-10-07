@@ -21,10 +21,9 @@ If all goes well, the first time you run IPython it should automatically create
 a user copy of the config directory for you, based on its builtin defaults. You
 can look at the files it creates to learn more about configuring the
 system. The main file you will modify to configure IPython's behavior is called
-ipythonrc (with a .ini extension under Windows), included for reference
-:ref:`here <ipythonrc>`. This file is very commented and has many variables you
-can change to suit your taste, you can find more details :ref:`here
-<customization>`. Here we discuss the basic things you will want to make sure
+ipythonrc (with a .ini extension under Windows). This file is very commented and
+has many variables you can change to suit your taste, you can find more details
+:ref:`here <customization>`. Here we discuss the basic things you will want to make sure
 things are working properly from the beginning.
 
 Color
@@ -42,7 +41,7 @@ The following terminals seem to handle the color sequences fine:
     * Linux main text console, KDE Konsole, Gnome Terminal, E-term,
       rxvt, xterm.
     * CDE terminal (tested under Solaris). This one boldfaces light colors.
-    * (X)Emacs buffers. See the emacs_ section for more details on
+    * (X)Emacs buffers. See the `emacs` section for more details on
       using IPython with (X)Emacs.
     * A Windows (XP/2k) command prompt with pyreadline_.
     * A Windows (XP/2k) CygWin shell. Although some users have reported

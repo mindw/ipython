@@ -14,7 +14,7 @@ dependencies. Officially, IPython requires Python 2.6, 2.7, 3.1, or 3.2.
 
     Since version 0.11, IPython has a hard syntax dependency on 2.6, and will no
     longer work on Python <= 2.5. You can find older versions of IPython which
-    supported Python <= 2.5 `here <http://archive.ipython.org/release/>`_
+    supported Python <= 2.5 at thh `IPython Archive`_.
 
 Some of the installation approaches use the :mod:`distribute` package and its
 :command:`easy_install` command line program.  In many scenarios, this provides
@@ -109,7 +109,7 @@ Windows, the installation procedure is:
 
 1. Install `distribute <http://pypi.python.org/pypi/distribute>`_.
 
-2. Install `pyreadline <http://pypi.python.org/pypi/pyreadline>`_.  You can use
+2. Install PyReadline_.  You can use
    the command ``easy_install pyreadline`` from a terminal, or the binary
    installer appropriate for your platform from the PyPI page.
 
@@ -178,8 +178,7 @@ readline
 As indicated above, on Windows, PyReadline is a *mandatory* dependency.
 PyReadline is a separate, Windows only implementation of readline that uses
 native Windows calls through :mod:`ctypes`. The easiest way of installing
-PyReadline is you use the binary installer available `here
-<http://pypi.python.org/pypi/pyreadline>`_.
+PyReadline is you use the binary installer available PyReadline_.
 
 On OSX, if you are using the built-in Python shipped by Apple, you will be
 missing a full readline implementation as Apple ships instead a library called
@@ -207,7 +206,7 @@ installed):
 
 When IPython is installed with :mod:`distribute`, (e.g. using the
 ``easy_install`` command), readline is added as a dependency on OS X, and
-PyReadline on Windows, and will be installed on your system.  However, if you
+PyReadline_ on Windows, and will be installed on your system.  However, if you
 do not use distribute, you may have to install one of these packages yourself.
 
 
@@ -370,8 +369,10 @@ these features should appear in Internet Explorer 10.
 
 .. _ZeroMQ: http://www.zeromq.org
 .. _PyZMQ: https://github.com/zeromq/pyzmq
-.. _paramiko: https://github.com/robey/paramiko
+.. _paramiko: https://github.com/paramiko/paramiko
 .. _pygments: http://pygments.org
 .. _pexpect: http://www.noah.org/wiki/Pexpect
 .. _Tornado: http://www.tornadoweb.org
 .. _MathJax: http://www.mathjax.org
+.. _PyReadline: http://pypi.python.org/pypi/pyreadline
+.. _IPython Archive: http://archive.ipython.org/release

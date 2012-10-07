@@ -90,6 +90,8 @@ if it suports the inline figures (e.g. notebook or qtconsole):
     Out[3:79]: [<matplotlib.lines.Line2D at 0x10c6566d0>]
 
 
+.. _px_cell_magic:
+
 %%px Cell Magic
 ---------------
 
@@ -145,7 +147,7 @@ independent of the defaults for the View.
 
 .. seealso::
 
-    :ref:`%pxconfig` accepts these same arguments for changing the *default*
+    `%pxconfig`_ accepts these same arguments for changing the *default*
     values of targets/blocking for the active View.
 
 
@@ -183,9 +185,9 @@ which adjusts how the outputs of multiple engines are presented.
 %pxresult
 ---------
 
-If you are using %px in non-blocking mode, you won't get output.
-You can use %pxresult to display the outputs of the latest command,
-just as is done when %px is blocking:
+If you are using `%px`_ in non-blocking mode, you won't get output.
+You can use `%pxresult`_ to display the outputs of the latest command,
+just as is done when `%px`_ is blocking:
 
 .. sourcecode:: ipython
 
@@ -200,16 +202,16 @@ just as is done when %px is blocking:
     [stdout:2] hi
     [stdout:3] hi
 
-%pxresult simply calls :meth:`.AsyncResult.display_outputs` on the most recent request.
-It accepts the same output-grouping arguments as %%px, so you can use it to view
+`%pxresult`_ simply calls :meth:`.AsyncResult.display_outputs` on the most recent request.
+It accepts the same output-grouping arguments as :ref:`%%px <px_cell_magic>`, so you can use it to view
 a result in different ways.
 
 
 %autopx
 -------
 
-The %autopx magic switches to a mode where everything you type is executed
-on the engines until you do %autopx again.
+The `%autopx`_ magic switches to a mode where everything you type is executed
+on the engines until you do `%autopx`_ again.
 
 .. sourcecode:: ipython
 
@@ -242,7 +244,7 @@ on the engines until you do %autopx again.
 The default targets and blocking behavior for the magics are governed by the :attr:`block`
 and :attr:`targets` attribute of the active View.  If you have a handle for the view,
 you can set these attributes directly, but if you don't, you can change them with
-the %pxconfig magic:
+the `%pxconfig`_ magic:
 
 .. sourcecode:: ipython
 
@@ -385,5 +387,4 @@ depending on where they live and where you are:
 
     ``%qtconsole`` will call :func:`bind_kernel` on an engine if it hasn't been done already,
     so you can often skip that first step.
-
 
