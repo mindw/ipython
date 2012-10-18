@@ -53,6 +53,7 @@ Authors
 
 * Fernando Perez
 * Brian Granger
+
 """
 #-----------------------------------------------------------------------------
 #  Copyright (C) 2010  The IPython Development Team
@@ -243,13 +244,14 @@ def get_input_encoding():
 #-----------------------------------------------------------------------------
 
 class InputSplitter(object):
-    """An object that can accumulate lines of Python source before execution.
+    r"""
+    An object that can accumulate lines of Python source before execution.
 
     This object is designed to be fed python source line-by-line, using
-       :meth:`push`. It will return on each push whether the currently pushed
-       code could be executed already. In addition, it provides a method called
-       :meth:`push_accepts_more` that can be used to query whether more input
-       can be pushed into a single interactive block.
+    :meth:`push`. It will return on each push whether the currently pushed
+    code could be executed already. In addition, it provides a method called
+    :meth:`push_accepts_more` that can be used to query whether more input
+    can be pushed into a single interactive block.
 
     This is a simple example of how an interactive terminal-based client can use
     this tool::
@@ -261,6 +263,7 @@ class InputSplitter(object):
             line = indent + raw_input(prompt)
             isp.push(line)
         print 'Input source was:\n', isp.source_reset(),
+
     """
     # Number of spaces of indentation computed from input that has been pushed
     # so far.  This is the attributes callers should query to get the current
@@ -297,21 +300,23 @@ class InputSplitter(object):
 
         Parameters
         ----------
-        input_mode : str
-
+        input_mode : str, optional
           One of ['line', 'cell']; default is 'line'.
 
-       The input_mode parameter controls how new inputs are used when fed via
-       the :meth:`push` method:
+        notes
+        -----
+        The input_mode parameter controls how new inputs are used when fed via
+        the :meth:`push` method:
 
-       - 'line': meant for line-oriented clients, inputs are appended one at a
-         time to the internal buffer and the whole buffer is compiled.
+            'line': meant for line-oriented clients, inputs are appended one at a
+                time to the internal buffer and the whole buffer is compiled.
 
-       - 'cell': meant for clients that can edit multi-line 'cells' of text at
-          a time.  A cell can contain one or more blocks that can be compile in
-          'single' mode by Python.  In this mode, each new input new input
-          completely replaces all prior inputs.  Cell mode is thus equivalent
-          to prepending a full reset() to every push() call.
+            'cell': meant for clients that can edit multi-line 'cells' of text at
+                a time.  A cell can contain one or more blocks that can be compile in
+                'single' mode by Python.  In this mode, each new input new input
+                completely replaces all prior inputs.  Cell mode is thus equivalent
+                to pre-pending a full `reset()` to every `push()` call.
+
         """
         self._buffer = []
         self._compile = codeop.CommandCompiler()
@@ -352,10 +357,11 @@ class InputSplitter(object):
         Returns
         -------
         is_complete : boolean
-          True if the current input source (the result of the current input
-          plus prior inputs) forms a complete Python execution block.  Note that
-          this value is also stored as a private attribute (``_is_complete``), so it
-          can be queried at any time.
+            True if the current input source (the result of the current input
+            plus prior inputs) forms a complete Python execution block. Note that
+            this value is also stored as a private attribute :attr:`_is_complete`, so it
+            can be queried at any time.
+
         """
         if self.input_mode == 'cell':
             self.reset()
@@ -468,11 +474,10 @@ class InputSplitter(object):
         Returns
         -------
         indent_spaces : int
-          New value for the indent level (it may be equal to self.indent_spaces
-        if indentation doesn't change.
-
+          New value for the indent level (it may be equal to self.indent_spaces if indentation doesn't change.
         full_dedent : boolean
           Whether the new line causes a full flush-left dedent.
+
         """
         indent_spaces = self.indent_spaces
         full_dedent = self._full_dedent
@@ -597,7 +602,8 @@ def transform_ipy_prompt(line):
 
 def _make_help_call(target, esc, lspace, next_input=None):
     """Prepares a pinfo(2)/psearch call from a target name and the escape
-    (i.e. ? or ??)"""
+    (i.e. ? or ??)
+    """
     method  = 'pinfo2' if esc == '??' \
                 else 'psearch' if '*' in target \
                 else 'pinfo'
@@ -700,7 +706,8 @@ class EscapedTransformer(object):
         """Class to transform lines that are explicitly escaped out.
 
         This calls the above _tr_* static methods for the actual line
-        translations."""
+        translations.
+        """
 
         # Empty lines just get returned unmodified
         if not line or line.isspace():
@@ -725,8 +732,8 @@ transform_escaped = EscapedTransformer()
 class IPythonInputSplitter(InputSplitter):
     """An input splitter that recognizes all of IPython's special syntax."""
 
-    # String with raw, untransformed input.
     source_raw = ''
+    """ String with raw, untransformed input. """
 
     # Flag to track when we're in the middle of processing a cell magic, since
     # the logic has to change.  In that case, we apply no transformations at
@@ -838,10 +845,11 @@ class IPythonInputSplitter(InputSplitter):
         Returns
         -------
         is_complete : boolean
-          True if the current input source (the result of the current input
-        plus prior inputs) forms a complete Python execution block.  Note that
-        this value is also stored as a private attribute (_is_complete), so it
-        can be queried at any time.
+            True if the current input source (the result of the current input
+            plus prior inputs) forms a complete Python execution block. Note that
+            this value is also stored as a private attribute :attr:`_is_complete`, so it
+            can be queried at any time.
+
         """
         if not lines:
             return super(IPythonInputSplitter, self).push(lines)

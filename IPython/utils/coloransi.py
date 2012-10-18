@@ -48,12 +48,12 @@ color_templates = (
 def make_color_table(in_class):
     """Build a set of color attributes in a class.
 
-    Helper function for building the *TermColors classes."""
+    Helper function for building the \*TermColors classes."""
 
     for name,value in color_templates:
         setattr(in_class,name,in_class._base % value)
 
-class TermColors:
+class TermColors(object):
     """Color escape sequences.
 
     This class defines the escape sequences for all the standard (ANSI?)
@@ -70,7 +70,7 @@ class TermColors:
 # Build the actual color table as a set of class attributes:
 make_color_table(TermColors)
 
-class InputTermColors:
+class InputTermColors(object):
     """Color escape sequences for input prompts.
 
     This class is similar to TermColors, but the escapes are wrapped in \001
@@ -98,7 +98,7 @@ class InputTermColors:
 # Build the actual color table as a set of class attributes:
 make_color_table(InputTermColors)
 
-class NoColors:
+class NoColors(object):
     """This defines all the same names as the colour classes, but maps them to
     empty strings, so it can easily be substituted to turn off colours."""
     NoColor = ''
@@ -107,7 +107,7 @@ class NoColors:
 for name, value in color_templates:
     setattr(NoColors, name, '')
 
-class ColorScheme:
+class ColorScheme(object):
     """Generic color scheme class. Just a name and a Struct."""
     def __init__(self,__scheme_name_,colordict=None,**colormap):
         self.name = __scheme_name_

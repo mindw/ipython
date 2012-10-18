@@ -173,6 +173,8 @@ stop_aliases = dict(
 stop_aliases.update(base_aliases)
 
 class IPClusterStop(BaseParallelApplication):
+    """IPClusterStop class"""
+
     name = u'ipcluster'
     description = stop_help
     examples = _stop_examples
@@ -242,6 +244,7 @@ engine_flags.update(dict(
     )
 ))
 class IPClusterEngines(BaseParallelApplication):
+    """IPClusterEngines class"""
 
     name = u'ipcluster'
     description = engines_help
@@ -445,6 +448,7 @@ start_aliases.update(dict(
 start_aliases['clean-logs'] = 'IPClusterStart.clean_logs'
 
 class IPClusterStart(IPClusterEngines):
+    """IPClusterStart class"""
 
     name = u'ipcluster'
     description = start_help
@@ -582,6 +586,8 @@ class IPClusterStart(IPClusterEngines):
 base='IPython.parallel.apps.ipclusterapp.IPCluster'
 
 class IPClusterApp(Application):
+    """IPClusterApp class """
+
     name = u'ipcluster'
     description = _description
     examples = _main_examples

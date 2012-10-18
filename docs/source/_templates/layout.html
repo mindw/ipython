@@ -1,12 +1,13 @@
 {% extends "!layout.html" %}
 
 
+{% if not embedded %}
 {% block rootrellink %}
         <li><a href="{{ pathto('index') }}">home</a>|&nbsp;</li>
         <li><a href="{{ pathto('search') }}">search</a>|&nbsp;</li>
        <li><a href="{{ pathto('index') }}">documentation </a> &raquo;</li>
 {% endblock %}
-
+{% endif %}
 
 {% block relbar1 %}
 

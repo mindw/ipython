@@ -56,7 +56,7 @@ else:
     arrayModules.append({'module':numarray,
         'type':numarray.numarraycore.NumArray})
 
-class Map:
+class Map(object):
     """A class for partitioning a sequence using a map."""
             
     def getPartition(self, seq, p, q):
@@ -105,7 +105,7 @@ class Map:
         return listOfPartitions
 
 class RoundRobinMap(Map):
-    """Partitions a sequence in a roun robin fashion.
+    """Partitions a sequence in a round robin fashion.
     
     This currently does not work!
     """

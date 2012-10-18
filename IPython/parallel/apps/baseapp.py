@@ -90,11 +90,12 @@ base_flags.update(base_ip_flags)
 class BaseParallelApplication(BaseIPythonApplication):
     """The base Application for IPython.parallel apps
     
-    Principle extensions to BaseIPyythonApplication:
-    
+    Principle extensions to BaseIPythonApplication:
+
     * work_dir
     * remote logging via pyzmq
     * IOLoop instance
+
     """
 
     crash_handler_class = ParallelCrashHandler

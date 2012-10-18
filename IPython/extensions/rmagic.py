@@ -92,8 +92,8 @@ def Rconverter(Robj, dataframe=False):
 
     Parameters
     ----------
+    Robj : an R object returned from rpy2
 
-    Robj: an R object returned from rpy2
     """
     is_data_frame = ro.r('is.data.frame')
     colnames = ro.r('colnames')
@@ -116,7 +116,8 @@ def Rconverter(Robj, dataframe=False):
 
 @magics_class
 class RMagics(Magics):
-    """A set of magics useful for interactive work with R via rpy2.
+    """
+    A set of magics useful for interactive work with R via rpy2.
     """
 
     def __init__(self, shell, Rconverter=Rconverter,
@@ -147,11 +148,11 @@ class RMagics(Magics):
         self.Rconverter = Rconverter
 
     def eval(self, line):
-        '''
+        """
         Parse and evaluate a line with rpy2.
         Returns the output to R's stdout() connection
         and the value of eval(parse(line)).
-        '''
+        """
         old_writeconsole = ri.get_writeconsole()
         ri.set_writeconsole(self.write_console)
         try:
@@ -170,9 +171,9 @@ class RMagics(Magics):
         self.Rstdout_cache.append(output)
 
     def flush(self):
-        '''
+        """
         Flush R's stdout cache to a string, returning the string.
-        '''
+        """
         value = ''.join([str_to_unicode(s, 'utf-8') for s in self.Rstdout_cache])
         self.Rstdout_cache = []
         return value
@@ -180,7 +181,7 @@ class RMagics(Magics):
     @skip_doctest
     @line_magic
     def Rpush(self, line):
-        '''
+        """
         A line-level magic for R that pushes
         variables from python to rpy2. The line should be made up
         of whitespace separated variable names in the IPython
@@ -198,7 +199,7 @@ class RMagics(Magics):
             In [11]: %R mean(X)
             Out[11]: array([ 6.23333333])
 
-        '''
+        """
 
         inputs = line.split(' ')
         for input in inputs:
@@ -346,7 +347,7 @@ class RMagics(Magics):
         )
     @line_cell_magic
     def R(self, line, cell=None):
-        '''
+        """
         Execute code in R, and pull some of the results back into the Python namespace.
 
         In line mode, this will evaluate an expression and convert the returned value to a Python object.
@@ -381,9 +382,9 @@ class RMagics(Magics):
             Multiple R-squared: 0.6993,Adjusted R-squared: 0.549
             F-statistic: 4.651 on 1 and 2 DF,  p-value: 0.1638
 
-        In the notebook, plots are published as the output of the cell.
+        In the notebook, plots are published as the output of the cell::
 
-        %R plot(X, Y)
+            %R plot(X, Y)
 
         will create a scatter plot of X bs Y.
 
@@ -409,23 +410,22 @@ class RMagics(Magics):
         * If the cell is not None, the magic returns None.
 
         * If the cell evaluates as False, the resulting value is returned
-        unless the final line prints something to the console, in
-        which case None is returned.
+            unless the final line prints something to the console, in
+            which case None is returned.
 
         * If the final line results in a NULL value when evaluated
-        by rpy2, then None is returned.
+            by rpy2, then None is returned.
 
         * No attempt is made to convert the final value to a structured array.
-        Use the --dataframe flag or %Rget to push / return a structured array.
+            Use the --dataframe flag or %Rget to push / return a structured array.
 
         * If the -n flag is present, there is no return value.
 
         * A trailing ';' will also result in no return value as the last
-        value in the line is an empty string.
+            value in the line is an empty string.
 
         The --dataframe argument will attempt to return structured arrays. 
-        This is useful for dataframes with
-        mixed data types. Note also that for a data.frame, 
+        This is useful for dataframes with mixed data types. Note also that for a data.frame,
         if it is returned as an ndarray, it is transposed::
 
             In [18]: dtype=[('x', '<i4'), ('y', '<f8'), ('z', '|S1')]
@@ -476,7 +476,7 @@ class RMagics(Magics):
             In [8]: mydata
             Out[8]: array([ 4. ,  6. ,  8.3])
 
-        '''
+        """
 
         args = parse_argstring(self.R, line)
 

@@ -721,6 +721,8 @@ class SSHEngineLauncher(SSHClusterLauncher, EngineMixin):
 
 
 class SSHEngineSetLauncher(LocalEngineSetLauncher):
+    """SSHEngineSetLauncher class"""
+
     launcher_class = SSHEngineLauncher
     engines = Dict(config=True,
         help="""dict of engines to launch.  This is a dict by hostname of ints,

@@ -4,6 +4,7 @@ Authors:
 
 * Brian Granger
 * Min RK
+
 """
 #-----------------------------------------------------------------------------
 #  Copyright (C) 2010-2011  The IPython Development Team
@@ -34,11 +35,12 @@ from .asyncresult import AsyncMapResult
 def remote(view, block=None, **flags):
     """Turn a function into a remote function.
 
-    This method can be used for map:
+    This method can be used for map::
 
-    In [1]: @remote(view,block=True)
-       ...: def func(a):
-       ...:    pass
+        In [1]: @remote(view,block=True)
+           ...: def func(a):
+           ...:    pass
+
     """
 
     def remote_function(f):
@@ -49,11 +51,12 @@ def remote(view, block=None, **flags):
 def parallel(view, dist='b', block=None, ordered=True, **flags):
     """Turn a function into a parallel remote function.
 
-    This method can be used for map:
+    This method can be used for map::
 
-    In [1]: @parallel(view, block=True)
-       ...: def func(a):
-       ...:    pass
+        In [1]: @parallel(view, block=True)
+           ...: def func(a):
+           ...:    pass
+
     """
 
     def parallel_function(f):
@@ -64,9 +67,10 @@ def getname(f):
     """Get the name of an object.
     
     For use in case of callables that are not functions, and
-    thus may not have __name__ defined.
+    thus may not have ``__name__`` defined.
     
     Order: f.__name__ >  f.name > str(f)
+
     """
     try:
         return f.__name__
@@ -98,6 +102,7 @@ class RemoteFunction(object):
         to use the current `block` attribute of `view`
 
     **flags : remaining kwargs are passed to View.temp_flags
+
     """
 
     view = None # the remote connection
@@ -126,7 +131,6 @@ class ParallelFunction(RemoteFunction):
 
     Parameters
     ----------
-
     view : View instance
         The view to be used for execution
     f : callable
@@ -144,6 +148,7 @@ class ParallelFunction(RemoteFunction):
     ordered : bool [default: True]
         Whether 
     **flags : remaining kwargs are passed to View.temp_flags
+
     """
 
     chunksize=None

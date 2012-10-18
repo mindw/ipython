@@ -34,6 +34,7 @@ Authors:
 * Enthought, Inc.  Some of the code in this file comes from enthought.traits
   and is licensed under the BSD license.  Also, many of the ideas also come
   from enthought.traits even though our implementation is very different.
+
 """
 
 #-----------------------------------------------------------------------------
@@ -383,6 +384,7 @@ class MetaHasTraits(type):
         super(MetaHasTraits, cls).__init__(name, bases, classdict)
 
 class HasTraits(object):
+    """ HasTraits class"""
 
     __metaclass__ = MetaHasTraits
 
@@ -735,8 +737,8 @@ class Instance(ClassBasedTraitType):
 
         This trait allows values that are instances of a particular
         class or its sublclasses.  Our implementation is quite different
-        from that of enthough.traits as we don't allow instances to be used
-        for klass and we handle the ``args`` and ``kw`` arguments differently.
+        from that of ``enthought.traits`` as we don't allow instances to be used
+        for ``klass`` and we handle the ``args`` and ``kw`` arguments differently.
 
         Parameters
         ----------
@@ -750,12 +752,13 @@ class Instance(ClassBasedTraitType):
         allow_none : bool
             Indicates whether None is allowed as a value.
 
-        Default Value
-        -------------
+        Notes
+        -----
         If both ``args`` and ``kw`` are None, then the default value is None.
         If ``args`` is a tuple and ``kw`` is a dict, then the default is
         created as ``klass(*args, **kw)``.  If either ``args`` or ``kw`` is
         not (but not both), None is replace by ``()`` or ``{}``.
+		
         """
 
         self._allow_none = allow_none
@@ -1218,6 +1221,7 @@ class Container(Instance):
 
 class List(Container):
     """An instance of a Python list."""
+
     klass = list
 
     def __init__(self, trait=None, default_value=None, minlen=0, maxlen=sys.maxint,
@@ -1279,10 +1283,12 @@ class List(Container):
 
 class Set(Container):
     """An instance of a Python set."""
+
     klass = set
 
 class Tuple(Container):
     """An instance of a Python tuple."""
+
     klass = tuple
 
     def __init__(self, *traits, **metadata):

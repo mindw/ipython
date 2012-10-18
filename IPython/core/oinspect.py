@@ -96,7 +96,9 @@ def getdoc(obj):
 
     It also attempts to call a getdoc() method on the given object.  This
     allows objects which provide their docstrings via non-standard mechanisms
-    (like Pyro proxies) to still be inspected by ipython's ? system."""
+    (like Pyro proxies) to still be inspected by ipython's ? system.
+
+    """
     # Allow objects to offer customized documentation via a getdoc method:
     try:
         ds = obj.getdoc()
@@ -121,16 +123,15 @@ def getsource(obj,is_binary=False):
     This can be modified by other projects to provide customized source
     extraction.
 
-    Inputs:
+    Parameters:
+     obj : any python object
+        an object whose source code we will attempt to extract.
+    is_binary : boolean, optional
+        whether the object is known to come from a binary source.
+        This implementation will skip returning any output for binary objects, but
+        custom extractors may know how to meaningfully process them.
 
-    - obj: an object whose source code we will attempt to extract.
-
-    Optional inputs:
-
-    - is_binary: whether the object is known to come from a binary source.
-    This implementation will skip returning any output for binary objects, but
-    custom extractors may know how to meaningfully process them."""
-
+    """
     if is_binary:
         return None
     else:
@@ -153,7 +154,9 @@ def getargspec(obj):
     'defaults' is an n-tuple of the default values of the last n arguments.
 
     Modified version of inspect.getargspec from the Python Standard
-    Library."""
+    Library.
+
+    """
 
     if inspect.isfunction(obj):
         func_obj = obj
@@ -200,6 +203,7 @@ def call_tip(oinfo, format_call=True):
       available.  The priority is: call docstring for callable instances, then
       constructor docstring for classes, then main object's docstring otherwise
       (regular functions).
+
     """
     # Get call definition
     argspec = oinfo.get('argspec')
@@ -245,6 +249,7 @@ def find_file(obj):
     -------
     fname : str
       The absolute path to the file where the object was defined.
+
     """
     # get source if obj was decorated with @decorator
     if hasattr(obj, '__wrapped__'):
@@ -282,6 +287,7 @@ def find_source_lines(obj):
     -------
     lineno : int
       The line number where the object definition starts.
+
     """
     # get source if obj was decorated with @decorator
     if hasattr(obj, '__wrapped__'):
@@ -312,10 +318,13 @@ class Inspector:
         self.set_active_scheme(scheme)
 
     def _getdef(self,obj,oname=''):
-        """Return the definition header for any callable object.
+        """
+        Return the definition header for any callable object.
 
         If any exception is generated, None is returned instead and the
-        exception is suppressed."""
+        exception is suppressed.
+
+        """
 
         try:
             # We need a plain string here, NOT unicode!
@@ -369,9 +378,10 @@ class Inspector:
     def pdoc(self,obj,oname='',formatter = None):
         """Print the docstring for any object.
 
-        Optional:
-        -formatter: a function to run the docstring through for specially
-        formatted docstrings.
+        Parameters
+        ----------
+        formatter : function, optional
+            a function to run the docstring through for specially formatted docstrings.
 
         Examples
         --------
@@ -398,6 +408,7 @@ class Inspector:
 
         In [6]: %pdoc obj2
         No documentation found for obj2
+
         """
 
         head = self.__head  # For convenience
@@ -467,6 +478,7 @@ class Inspector:
           A list of 2-tuples: (field_title, field_content)
         title_width : int
           How many characters to pad titles to. Default 12.
+
         """
         out = []
         header = self.__head
@@ -498,16 +510,17 @@ class Inspector:
     def pinfo(self,obj,oname='',formatter=None,info=None,detail_level=0):
         """Show detailed information about an object.
 
-        Optional arguments:
+        Parameters
+        ----------
+        oname : string, optional
+            name of the variable pointing to the object.
+        formatter: a formatter, optional
+            a special formatter for docstrings (see pdoc)
+        info : an object, optional
+            a structure with some information fields which may have been precomputed already.
+        detail_level : boolean, optional
+            if set to 1, more information is given.
 
-        - oname: name of the variable pointing to the object.
-
-        - formatter: special formatter for docstrings (see pdoc)
-
-        - info: a structure with some information fields which may have been
-        precomputed already.
-
-        - detail_level: if set to 1, more information is given.
         """
         info = self.info(obj, oname=oname, formatter=formatter,
                             info=info, detail_level=detail_level)
@@ -561,16 +574,17 @@ class Inspector:
     def info(self, obj, oname='', formatter=None, info=None, detail_level=0):
         """Compute a dict with detailed information about an object.
 
-        Optional arguments:
+        Parameters
+        ----------
+        oname: string, optional
+            name of the variable pointing to the object.
+        formatter : a formatter, optional
+            special formatter for docstrings (see pdoc)
+        info : an object, optional
+            a structure with some information fields which may have been precomputed already.
+        detail_level : boolean, optional
+            if set to 1, more information is given.
 
-        - oname: name of the variable pointing to the object.
-
-        - formatter: special formatter for docstrings (see pdoc)
-
-        - info: a structure with some information fields which may have been
-        precomputed already.
-
-        - detail_level: if set to 1, more information is given.
         """
 
         obj_type = type(obj)
@@ -785,22 +799,20 @@ class Inspector:
                 ignore_case=False,show_all=False):
         """Search namespaces with wildcards for objects.
 
-        Arguments:
+        Parameters
+        ----------
+        pattern : string
+            string containing shell-like wildcards to use in namespace searches and optionally a type
+            specification to narrow the search to objects of that type.
+        ns_table : dict
+            dict of name->namespaces for search.
+        ns_search : list, optional
+            list of namespace names to include in search.
+        ignore_case : boolean, optional
+             make the search case-insensitive.
+        show_all : boolean, optional
+            show all names, including those starting with underscores.
 
-        - pattern: string containing shell-like wildcards to use in namespace
-        searches and optionally a type specification to narrow the search to
-        objects of that type.
-
-        - ns_table: dict of name->namespaces for search.
-
-        Optional arguments:
-
-          - ns_search: list of namespace names to include in search.
-
-          - ignore_case(False): make the search case-insensitive.
-
-          - show_all(False): show all names, including those starting with
-          underscores.
         """
         #print 'ps pattern:<%r>' % pattern # dbg
 

@@ -14,21 +14,21 @@ The classes are (see their docstrings for further details):
  - Demo: pure python demos
 
  - IPythonDemo: demos with input to be processed by IPython as if it had been
- typed interactively (so magics work, as well as any other special syntax you
- may have added via input prefilters).
+    typed interactively (so magics work, as well as any other special syntax you
+    may have added via input prefilters).
 
  - LineDemo: single-line version of the Demo class.  These demos are executed
- one line at a time, and require no markup.
+    one line at a time, and require no markup.
 
  - IPythonLineDemo: IPython version of the LineDemo class (the demo is
- executed a line at a time, but processed via IPython).
+    executed a line at a time, but processed via IPython).
 
  - ClearMixin: mixin to make Demo classes with less visual clutter.  It
-   declares an empty marquee and a pre_cmd that clears the screen before each
-   block (see Subclassing below).
+    declares an empty marquee and a pre_cmd that clears the screen before each
+    block (see Subclassing below).
 
  - ClearDemo, ClearIPDemo: mixin-enabled versions of the Demo and IPythonDemo
-   classes.
+    classes.
 
 
 Subclassing
@@ -100,19 +100,19 @@ place a set of stop tags; the other tags are only there to let you fine-tune
 the execution.
 
 This is probably best explained with the simple example file below.  You can
-copy this into a file named ex_demo.py, and try running it via:
+copy this into a file named ex_demo.py, and try running it via::
 
-from IPython.demo import Demo
-d = Demo('ex_demo.py')
-d()  <--- Call the d object (omit the parens if you have autocall set to 2).
+    from IPython.demo import Demo
+    d = Demo('ex_demo.py')
+    d()  # <--- Call the d object (omit the parens if you have autocall set to 2).
 
 Each time you call the demo object, it runs the next block.  The demo object
 has a few useful methods for navigation, like again(), edit(), jump(), seek()
 and back().  It can be reset for a new run via reset() or reloaded from disk
 (in case you've edited the source) via reload().  See their docstrings below.
 
-Note: To make this simpler to explore, a file called "demo-exercizer.py" has
-been added to the "docs/examples/core" directory.  Just cd to this directory in
+Note: To make this simpler to explore, a file called `demo-exercizer.py` has
+been added to the `docs/examples/core` directory.  Just cd to this directory in
 an IPython session, and type::
 
   %run demo-exercizer.py
@@ -120,45 +120,46 @@ an IPython session, and type::
 and then follow the directions.
 
 Example
-=======
+-------
 
-The following is a very simple example of a valid demo file.
+The following is a very simple example of a valid demo file::
 
-#################### EXAMPLE DEMO <ex_demo.py> ###############################
-'''A simple interactive demo to illustrate the use of IPython's Demo class.'''
+    #################### EXAMPLE DEMO <ex_demo.py> ###############################
+    '''A simple interactive demo to illustrate the use of IPython's Demo class.'''
 
-print 'Hello, welcome to an interactive IPython demo.'
+    print 'Hello, welcome to an interactive IPython demo.'
 
-# The mark below defines a block boundary, which is a point where IPython will
-# stop execution and return to the interactive prompt. The dashes are actually
-# optional and used only as a visual aid to clearly separate blocks while
-# editing the demo code.
-# <demo> stop
+    # The mark below defines a block boundary, which is a point where IPython will
+    # stop execution and return to the interactive prompt. The dashes are actually
+    # optional and used only as a visual aid to clearly separate blocks while
+    # editing the demo code.
+    # <demo> stop
 
-x = 1
-y = 2
+    x = 1
+    y = 2
 
-# <demo> stop
+    # <demo> stop
 
-# the mark below makes this block as silent
-# <demo> silent
+    # the mark below makes this block as silent
+    # <demo> silent
 
-print 'This is a silent block, which gets executed but not printed.'
+    print 'This is a silent block, which gets executed but not printed.'
 
-# <demo> stop
-# <demo> auto
-print 'This is an automatic block.'
-print 'It is executed without asking for confirmation, but printed.'
-z = x+y
+    # <demo> stop
+    # <demo> auto
+    print 'This is an automatic block.'
+    print 'It is executed without asking for confirmation, but printed.'
+    z = x+y
 
-print 'z=',x
+    print 'z=',x
 
-# <demo> stop
-# This is just another normal block.
-print 'z is now:', z
+    # <demo> stop
+    # This is just another normal block.
+    print 'z is now:', z
 
-print 'bye!'
-################### END EXAMPLE DEMO <ex_demo.py> ############################
+    print 'bye!'
+    ################### END EXAMPLE DEMO <ex_demo.py> ############################
+
 """
 
 #*****************************************************************************
@@ -194,32 +195,34 @@ class Demo(object):
     re_auto_all = re_mark('auto_all')
 
     def __init__(self,src,title='',arg_str='',auto_all=None):
-        """Make a new demo object.  To run the demo, simply call the object.
+        """
+        Make a new demo object.  To run the demo, simply call the object.
 
         See the module docstring for full details and an example (you can use
         IPython.Demo? in IPython to see it).
 
-        Inputs:
+        Parameters
+        ----------
+        src : file or a string
+            Either a file, file-like object or a string that can be resolved to a filename.
 
-          - src is either a file, or file-like object, or a
-              string that can be resolved to a filename.
+        title : string, optional
+            a string to use as the demo name.  Of most use when the demo
+            you are making comes from an object that has no filename, or if you
+            want an alternate denotation distinct from the filename.
 
-        Optional inputs:
+        arg_str : string, optional
+            a string of arguments, internally converted to a list
+            just like sys.argv, so the demo script can see a similar
+            environment.
 
-          - title: a string to use as the demo name.  Of most use when the demo
-          you are making comes from an object that has no filename, or if you
-          want an alternate denotation distinct from the filename.
-
-          - arg_str(''): a string of arguments, internally converted to a list
-          just like sys.argv, so the demo script can see a similar
-          environment.
-
-          - auto_all(None): global flag to run all blocks automatically without
-          confirmation.  This attribute overrides the block-level tags and
-          applies to the whole demo.  It is an attribute of the object, and
-          can be changed at runtime simply by reassigning it to a boolean
-          value.
-          """
+        auto_all : boolean
+            global flag to run all blocks automatically without
+            confirmation.  This attribute overrides the block-level tags and
+            applies to the whole demo.  It is an attribute of the object, and
+            can be changed at runtime simply by reassigning it to a boolean
+            value.
+        """
         if hasattr(src, "read"):
              # It seems to be a file or a file-like object
             self.fname = "from a file-like object"
@@ -314,7 +317,8 @@ class Demo(object):
     def _get_index(self,index):
         """Get the current block index, validating and checking status.
 
-        Returns None if the demo is finished"""
+        Returns None if the demo is finished
+        """
 
         if index is None:
             if self.finished:
@@ -360,7 +364,8 @@ class Demo(object):
         original source file.  If you want to do that, simply open the file in
         an editor and use reload() when you make changes to the file.  This
         method is meant to let you change a block during a demonstration for
-        explanatory purposes, without damaging your original script."""
+        explanatory purposes, without damaging your original script.
+        """
 
         index = self._get_index(index)
         if index is None:
@@ -422,7 +427,8 @@ class Demo(object):
         means that the calling convention is one off from typical Python
         lists.  The reason for the inconsistency is that the demo always
         prints 'Block n/N, and N is the total, so it would be very odd to use
-        zero-indexing here."""
+        zero-indexing here.
+        """
 
         index = self._get_index(index)
         if index is None:
@@ -483,7 +489,8 @@ class Demo(object):
 
 
 class IPythonDemo(Demo):
-    """Class for interactive demos with IPython's input processing applied.
+    """
+    Class for interactive demos with IPython's input processing applied.
 
     This subclasses Demo, but instead of executing each block by the Python
     interpreter (via exec), it actually calls IPython on it, so that any input
@@ -501,7 +508,8 @@ class IPythonDemo(Demo):
         self.shell.run_cell(source)
 
 class LineDemo(Demo):
-    """Demo where each line is executed as a separate block.
+    """
+    Demo where each line is executed as a separate block.
 
     The input script should be valid Python code.
 
@@ -512,10 +520,13 @@ class LineDemo(Demo):
 
     Note: the input can not have *any* indentation, which means that only
     single-lines of input are accepted, not even function definitions are
-    valid."""
+    valid.
+    """
 
     def reload(self):
-        """Reload source from disk and initialize state."""
+        """
+        Reload source from disk and initialize state.
+        """
         # read data and parse into blocks
         self.fload()
         lines           = self.fobj.readlines()
@@ -541,14 +552,15 @@ class IPythonLineDemo(IPythonDemo,LineDemo):
 
 
 class ClearMixin(object):
-    """Use this mixin to make Demo classes with less visual clutter.
+    """
+    Use this mixin to make Demo classes with less visual clutter.
 
     Demos using this mixin will clear the screen before every block and use
     blank marquees.
 
     Note that in order for the methods defined here to actually override those
     of the classes it's mixed with, it must go /first/ in the inheritance
-    tree.  For example:
+    tree.  For example::
 
         class ClearIPDemo(ClearMixin,IPythonDemo): pass
 
@@ -556,13 +568,17 @@ class ClearMixin(object):
     """
 
     def marquee(self,txt='',width=78,mark='*'):
-        """Blank marquee that returns '' no matter what the input."""
+        """
+        Blank marquee that returns '' no matter what the input.
+        """
         return ''
 
     def pre_cmd(self):
-        """Method called before executing each block.
+        """
+        Method called before executing each block.
 
-        This one simply clears the screen."""
+        This one simply clears the screen.
+        """
         from IPython.utils.terminal import term_clear
         term_clear()
 

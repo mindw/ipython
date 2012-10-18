@@ -63,23 +63,18 @@ class BasicMagics(Magics):
 
         Examples
         --------
-        ::
-          In [1]: %alias_magic t timeit
-
-          In [2]: %t -n1 pass
-          1 loops, best of 3: 954 ns per loop
-
-          In [3]: %%t -n1
-             ...: pass
-             ...:
-          1 loops, best of 3: 954 ns per loop
-
-          In [4]: %alias_magic --cell whereami pwd
-          UsageError: Cell magic function `%%pwd` not found.
-          In [5]: %alias_magic --line whereami pwd
-
-          In [6]: %whereami
-          Out[6]: u'/home/testuser'
+        >>> %alias_magic t timeit
+        >>> %t -n1 pass
+        1 loops, best of 3: 954 ns per loop
+        >>> %%t -n1
+        ...     ...: pass
+        ...     ...:
+        1 loops, best of 3: 954 ns per loop
+        >>> %alias_magic --cell whereami pwd
+        UsageError: Cell magic function `%%pwd` not found.
+        >>> %alias_magic --line whereami pwd
+        >>> %whereami
+        u'/home/testuser'
         """
         args = magic_arguments.parse_argstring(self.alias_magic, line)
         shell = self.shell

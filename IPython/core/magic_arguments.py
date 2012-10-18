@@ -154,8 +154,7 @@ class ArgDecorator(object):
 
 
 class magic_arguments(ArgDecorator):
-    """ Mark the magic as having argparse arguments and possibly adjust the
-    name.
+    """ Mark the magic as having argparse arguments and possibly adjust the name.
     """
 
     def __init__(self, name=None):

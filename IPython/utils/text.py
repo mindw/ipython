@@ -160,11 +160,13 @@ class SList(list):
         If field is specified, the match must occur in the specified
         whitespace-separated field.
 
-        Examples::
+        Examples
+        --------
 
-            a.grep( lambda x: x.startswith('C') )
-            a.grep('Cha.*log', prune=1)
-            a.grep('chm', field=-1)
+        >>> a.grep( lambda x: x.startswith('C') )
+        >>> a.grep('Cha.*log', prune=1)
+        >>> a.grep('chm', field=-1)
+
         """
 
         def match_target(s):
@@ -195,10 +197,10 @@ class SList(list):
             -rwxrwxrwx  1 ville None      18 Dec 14  2006 ChangeLog
             drwxrwxrwx+ 6 ville None       0 Oct 24 18:05 IPython
 
-        a.fields(0) is ['-rwxrwxrwx', 'drwxrwxrwx+']
-        a.fields(1,0) is ['1 -rwxrwxrwx', '6 drwxrwxrwx+']
-        (note the joining by space).
-        a.fields(-1) is ['ChangeLog', 'IPython']
+            a.fields(0) is ['-rwxrwxrwx', 'drwxrwxrwx+']
+            a.fields(1,0) is ['1 -rwxrwxrwx', '6 drwxrwxrwx+']
+            #(note the joining by space).
+            a.fields(-1) is ['ChangeLog', 'IPython']
 
         IndexErrors are ignored.
 
@@ -224,8 +226,10 @@ class SList(list):
     def sort(self,field= None,  nums = False):
         """ sort by specified fields (see fields())
 
-        Example::
-            a.sort(1, nums = True)
+        Examples
+        --------
+        >>> a.sort(1, nums = True)
+        >>>
 
         Sorts a by second field, in numerical order (so that 21 > 3)
 
@@ -280,7 +284,8 @@ def qw(words,flat=0,sep=None,maxsplit=-1):
     words can also be a list itself, and with flat=1, the output will be
     recursively flattened.
 
-    Examples:
+    Examples
+    --------
 
     >>> qw('1 2')
     ['1', '2']
@@ -697,15 +702,15 @@ class DollarFormatter(FullEvalFormatter):
 
     Examples
     --------
-    In [1]: f = DollarFormatter()
-    In [2]: f.format('{n//4}', n=8)
-    Out[2]: u'2'
+    >>> f = DollarFormatter()
+    >>> f.format('{n//4}', n=8)
+    u'2'
     
-    In [3]: f.format('23 * 76 is $result', result=23*76)
-    Out[3]: u'23 * 76 is 1748'
+    >>> f.format('23 * 76 is $result', result=23*76)
+    u'23 * 76 is 1748'
     
-    In [4]: f.format('$a or {b}', a=1, b=2)
-    Out[4]: u'1 or 2'
+    >>>f.format('$a or {b}', a=1, b=2)
+    u'1 or 2'
     """
     _dollar_pattern = re.compile("(.*?)\$(\$?[\w\.]+)")
     def parse(self, fmt_string):
@@ -765,8 +770,8 @@ def _get_or_default(mylist, i, default=None):
 def compute_item_matrix(items, empty=None, *args, **kwargs) :
     """Returns a nested list, and info to columnize items
 
-    Parameters :
-    ------------
+    Parameters
+    ----------
 
     items :
         list of strings to columize
@@ -797,21 +802,20 @@ def compute_item_matrix(items, empty=None, *args, **kwargs) :
         columns_width   : list of with of each columns
         optimal_separator_width : best separator width between columns
 
-    Exemple :
-    ---------
+    Examples
+    --------
 
-    In [1]: l = ['aaa','b','cc','d','eeeee','f','g','h','i','j','k','l']
+    >>> l = ['aaa','b','cc','d','eeeee','f','g','h','i','j','k','l']
        ...: compute_item_matrix(l,displaywidth=12)
-    Out[1]:
-        ([['aaa', 'f', 'k'],
-        ['b', 'g', 'l'],
-        ['cc', 'h', None],
-        ['d', 'i', None],
-        ['eeeee', 'j', None]],
-        {'columns_numbers': 3,
-        'columns_width': [5, 1, 1],
-        'optimal_separator_width': 2,
-        'rows_numbers': 5})
+    ([['aaa', 'f', 'k'],
+    ['b', 'g', 'l'],
+    ['cc', 'h', None],
+    ['d', 'i', None],
+    ['eeeee', 'j', None]],
+    {'columns_numbers': 3,
+    'columns_width': [5, 1, 1],
+    'optimal_separator_width': 2,
+    'rows_numbers': 5})
 
     """
     info = _find_optimal(map(len, items), *args, **kwargs)
@@ -833,8 +837,8 @@ def columnize(items, separator='  ', displaywidth=80):
     displaywidth : int, optional [default is 80]
         Width of the display in number of characters.
 
-    Returns
-    -------
+    Return
+    ------
     The formatted string.
     """
     if not items :

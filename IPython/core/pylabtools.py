@@ -313,18 +313,18 @@ def pylab_activate(user_ns, gui=None, import_all=True, shell=None):
     Parameters
     ----------
     user_ns : dict
-      Namespace where the imports will occur.
-
-    gui : optional, string
-      A valid gui name following the conventions of the %gui magic.
-
-    import_all : optional, boolean
-      If true, an 'import *' is done from numpy and pylab.
+        Namespace where the imports will occur.
+    gui : string, optional
+        A valid gui name following the conventions of the %gui magic.
+    import_all : boolean, optional
+        If true, an ``import *`` is done from numpy and pylab.
 
     Returns
     -------
-    The actual gui used (if not given as input, it was obtained from matplotlib
-    itself, and will be needed next to configure IPython's gui integration.
+    gui : object
+        The actual gui used (if not given as input, it was obtained from matplotlib
+        itself, and will be needed next to configure IPython's gui integration.
+
     """
     gui, backend = find_gui_and_backend(gui)
     activate_matplotlib(backend)

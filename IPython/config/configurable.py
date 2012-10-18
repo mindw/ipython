@@ -45,7 +45,7 @@ class MultipleInstanceError(ConfigurableError):
 #-----------------------------------------------------------------------------
 
 class Configurable(HasTraits):
-
+    """Configurable Class"""
     config = Instance(Config,(),{})
     created = None
 

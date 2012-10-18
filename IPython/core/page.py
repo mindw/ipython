@@ -9,10 +9,9 @@ Authors:
 
 Notes
 -----
-
 For now this uses ipapi, so it can't be in IPython.utils.  If we can get
 rid of that dependency, we could move it there.
------
+
 """
 
 #-----------------------------------------------------------------------------
@@ -52,7 +51,8 @@ def page_dumb(strng, start=0, screen_lines=25):
     """Very dumb 'pager' in Python, for when nothing else works.
 
     Only moves forward, same interface as page(), except for pager_cmd and
-    mode."""
+    mode.
+    """
 
     out_ln  = strng.splitlines()[start:]
     screens = chop(out_ln,screen_lines-1)
@@ -72,7 +72,7 @@ def page_dumb(strng, start=0, screen_lines=25):
 
 def _detect_screen_size(use_curses, screen_lines_def):
     """Attempt to work out the number of lines on the screen.
-    
+
     This is called by page(). It can raise an error (e.g. when run in the
     test suite), so it's separated out so it can easily be called in a try block.
     """
@@ -105,7 +105,7 @@ def _detect_screen_size(use_curses, screen_lines_def):
         # http://bugs.python.org/issue10144
         NCURSES_NO_SETBUF = os.environ.get('NCURSES_NO_SETBUF', None)
         os.environ['NCURSES_NO_SETBUF'] = ''
-        
+
         # Proceed with curses initialization
         scr = curses.initscr()
         screen_lines_real,screen_cols = scr.getmaxyx()
@@ -116,7 +116,7 @@ def _detect_screen_size(use_curses, screen_lines_def):
             del os.environ['NCURSES_NO_SETBUF']
         else:
             os.environ['NCURSES_NO_SETBUF'] = NCURSES_NO_SETBUF
-            
+
         # Restore terminal state in case endwin() didn't.
         termios.tcsetattr(sys.stdout,termios.TCSANOW,term_flags)
         # Now we have what we needed: the screen size in rows/columns
@@ -234,7 +234,8 @@ def page(strng, start=0, screen_lines=0, pager_cmd=None):
 
 
 def page_file(fname, start=0, pager_cmd=None):
-    """Page a file, using an optional pager command and starting line.
+    """
+    Page a file, using an optional pager command and starting line.
     """
 
     pager_cmd = get_pager_cmd(pager_cmd)
@@ -315,11 +316,21 @@ else:
 def snip_print(str,width = 75,print_full = 0,header = ''):
     """Print a string snipping the midsection to fit in width.
 
-    print_full: mode control:
-      - 0: only snip long strings
-      - 1: send to page() directly.
-      - 2: snip long strings and ask for full length viewing with page()
-    Return 1 if snipping was necessary, 0 otherwise."""
+    Parameters
+    ----------
+    print_full : integer, optional
+        mode control:
+
+        - 0: only snip long strings
+        - 1: send to page() directly.
+        - 2: snip long strings and ask for full length viewing with page()
+
+    Returns
+    -------
+    success : boolean
+        1 if snipping was necessary, 0 otherwise.
+
+    """
 
     if print_full == 1:
         page(header+str)

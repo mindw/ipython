@@ -154,7 +154,6 @@ class CodeMagics(Magics):
           where source can be a filename, URL, input history range or macro
 
         Options:
-        --------
           -y : Don't ask confirmation for loading source above 200 000 characters.
 
         This magic command can either take a local filename, a URL, an history

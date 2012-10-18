@@ -37,17 +37,17 @@ def mutex_opts(dict,ex_op):
                   'Options '+op1+' and '+op2+' are mutually exclusive.'
 
 
-class EvalDict:
+class EvalDict(object):
     """
     Emulate a dict which evaluates its contents in the caller's frame.
 
-    Usage:
+    Examples
+    --------
     >>> number = 19
-
     >>> text = "python"
-
     >>> print "%(text.capitalize())s %(number/9.0).1f rules!" % EvalDict()
     Python 2.1 rules!
+
     """
 
     # This version is due to sismex01@hebmex.com on c.l.py, and is basically a
@@ -81,16 +81,22 @@ def belong(candidates,checklist):
 def with_obj(object, **args):
     """Set multiple attributes for an object, similar to Pascal's with.
 
-    Example:
-    with_obj(jim,
+    Examples
+    --------
+    >>> with_obj(jim,
              born = 1960,
              haircolour = 'Brown',
-             eyecolour = 'Green')
+             eyecolour = 'Green') # doctest: +SKIP
 
+
+    References
+    ----------
     Credit: Greg Ewing, in
     http://mail.python.org/pipermail/python-list/2001-May/040703.html.
 
-    NOTE: up until IPython 0.7.2, this was called simply 'with', but 'with'
+    Notes
+    -----
+    up until IPython 0.7.2, this was called simply 'with', but 'with'
     has become a keyword for Python 2.5, so we had to rename it."""
 
     object.__dict__.update(args)
@@ -135,7 +141,7 @@ def import_fail_info(mod_name,fns=None):
         warn("Loading of %s from %s failed.\n" % (fns,mod_name))
 
 
-class NotGiven: pass
+class NotGiven(object): pass
 
 def popkey(dct,key,default=NotGiven):
     """Return dct[key] and delete dct[key].

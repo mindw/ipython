@@ -84,18 +84,20 @@ class Tracer(object):
     def __init__(self,colors=None):
         """Create a local debugger instance.
 
-        :Parameters:
+        Parameters
+        ----------
+        colors: string, optional
+            a string containing the name of the color scheme to
+            use, it must be one of IPython's valid color schemes.  If not given, the
+            function will default to the current IPython scheme when running inside
+            IPython, and to 'NoColor' otherwise.
 
-          - `colors` (None): a string containing the name of the color scheme to
-        use, it must be one of IPython's valid color schemes.  If not given, the
-        function will default to the current IPython scheme when running inside
-        IPython, and to 'NoColor' otherwise.
-
-        Usage example:
-
+        Examples
+        --------
         from IPython.core.debugger import Tracer; debug_here = Tracer()
 
         ... later in your code
+
         debug_here()  # -> will open up the debugger at that point.
 
         Once the debugger activates, you can use all of its regular commands to
@@ -152,7 +154,7 @@ class Tracer(object):
 
 def decorate_fn_with_doc(new_fn, old_fn, additional_text=""):
     """Make new_fn have old_fn's doc string. This is particularly useful
-    for the do_... commands that hook into the help system.
+    for the do ... commands that hook into the help system.
     Adapted from from a comp.lang.python posting
     by Duncan Booth."""
     def wrapper(*args, **kw):

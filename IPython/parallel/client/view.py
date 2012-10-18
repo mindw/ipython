@@ -385,12 +385,10 @@ class DirectView(View):
     >>> dv_even = client[::2]
     >>> dv_some = client[1:3]
 
-    This object provides dictionary access to engine namespaces:
+    This object provides dictionary access to engine namespaces::
 
-    # push a=5:
-    >>> dv['a'] = 5
-    # pull 'foo':
-    >>> db['foo']
+    >>> dv['a'] = 5 # push a=5
+    >>> db['foo'] # pull 'foo'
 
     """
 
@@ -410,11 +408,11 @@ class DirectView(View):
     def sync_imports(self, local=True, quiet=False):
         """Context Manager for performing simultaneous local and remote imports.
 
-        'import x as y' will *not* work.  The 'as y' part will simply be ignored.
+        ``import x as y`` will *not* work.  The ``as y`` part will simply be ignored.
         
-        If `local=True`, then the package will also be imported locally.
+        If ``local=True``, then the package will also be imported locally.
         
-        If `quiet=True`, no output will be produced when attempting remote 
+        If ``quiet=True``, no output will be produced when attempting remote
         imports. 
         
         Note that remote-only (`local=False`) imports have not been implemented.
@@ -505,13 +503,9 @@ class DirectView(View):
 
         Parameters
         ----------
-
         f : callable
-
         args : list [default: empty]
-
         kwargs : dict [default: empty]
-
         targets : target list [default: self.targets]
             where to run
         block : bool [default: self.block]
@@ -528,6 +522,7 @@ class DirectView(View):
             returns actual result of f(*args, **kwargs) on the engine(s)
             This will be a list of self.targets is also a list (even length 1), or
             the single result if self.targets is an integer engine id
+
         """
         args = [] if args is None else args
         kwargs = {} if kwargs is None else kwargs
@@ -955,13 +950,9 @@ class LoadBalancedView(View):
 
         Parameters
         ----------
-
         f : callable
-
         args : list [default: empty]
-
         kwargs : dict [default: empty]
-
         block : bool [default: self.block]
             whether to block
         track : bool [default: self.track]
@@ -971,13 +962,13 @@ class LoadBalancedView(View):
 
         Returns
         -------
-
         if self.block is False:
             returns AsyncResult
         else:
             returns actual result of f(*args, **kwargs) on the engine(s)
             This will be a list of self.targets is also a list (even length 1), or
             the single result if self.targets is an integer engine id
+
         """
 
         # validate whether we can run

@@ -114,7 +114,7 @@ no_op_context = NoOpContext()
 
 class SpaceInInput(Exception): pass
 
-class Bunch: pass
+class Bunch(object): pass
 
 
 def get_default_colors():
@@ -127,9 +127,10 @@ def get_default_colors():
 
 
 class SeparateUnicode(Unicode):
-    """A Unicode subclass to validate separate_in, separate_out, etc.
+    r"""
+    A Unicode subclass to validate separate_in, separate_out, etc.
 
-    This is a Unicode based trait that converts '0'->'' and '\\n'->'\n'.
+    This is a Unicode based trait that converts '0'->'' and '\\\\n'->'\\n'.
     """
 
     def validate(self, obj, value):
@@ -820,25 +821,25 @@ class InteractiveShell(SingletonConfigurable):
         because of how Python tears down modules (it hard-sets all their
         references to None without regard for reference counts).  This method
         must therefore make a *copy* of the given namespace, to allow the
-        original module's __dict__ to be cleared and reused.
-
+        original module's ``__dict__`` to be cleared and reused.
 
         Parameters
         ----------
-          ns : a namespace (a dict, typically)
-
-          fname : str
+        ns : a namespace (a dict, typically)
+        fname : str
             Filename associated with the namespace.
 
         Examples
         --------
+        ::
 
-        In [10]: import IPython
+            In [10]: import IPython
 
-        In [11]: _ip.cache_main_mod(IPython.__dict__,IPython.__file__)
+            In [11]: _ip.cache_main_mod(IPython.__dict__,IPython.__file__)
 
-        In [12]: IPython.__file__ in _ip._main_ns_cache
-        Out[12]: True
+            In [12]: IPython.__file__ in _ip._main_ns_cache
+            Out[12]: True
+
         """
         self._main_ns_cache[os.path.abspath(fname)] = ns.copy()
 
@@ -849,18 +850,20 @@ class InteractiveShell(SingletonConfigurable):
 
         Examples
         --------
+        ::
 
-        In [15]: import IPython
+            In [15]: import IPython
 
-        In [16]: _ip.cache_main_mod(IPython.__dict__,IPython.__file__)
+            In [16]: _ip.cache_main_mod(IPython.__dict__,IPython.__file__)
 
-        In [17]: len(_ip._main_ns_cache) > 0
-        Out[17]: True
+            In [17]: len(_ip._main_ns_cache) > 0
+            Out[17]: True
 
-        In [18]: _ip.clear_main_mod_cache()
+            In [18]: _ip.clear_main_mod_cache()input_splitter
 
-        In [19]: len(_ip._main_ns_cache) == 0
-        Out[19]: True
+            In [19]: len(_ip._main_ns_cache) == 0
+            Out[19]: True
+
         """
         self._main_ns_cache.clear()
 
@@ -899,6 +902,7 @@ class InteractiveShell(SingletonConfigurable):
           flag and does not actually invoke the debugger if the flag is false.
           The 'force' option forces the debugger to activate even if the flag
           is false.
+
         """
 
         if not (force or self.call_pdb):
@@ -1686,7 +1690,9 @@ class InteractiveShell(SingletonConfigurable):
         A specific showsyntaxerror() also exists, but this method can take
         care of calling it if needed, so unless you are explicitly catching a
         SyntaxError exception, don't try to analyze the stack manually and
-        simply call this method."""
+        simply call this method.
+
+        """
 
         try:
             try:
@@ -1870,10 +1876,11 @@ class InteractiveShell(SingletonConfigurable):
 
         Requires readline.
 
-        Example:
+        Examples
+        --------
+        >>> _ip.set_next_input("Hello Word")
+        Hello Word_  # cursor is here
 
-        [D:\ipython]|1> _ip.set_next_input("Hello Word")
-        [D:\ipython]|2> Hello Word_  # cursor is here
         """
         self.rl_next_input = py3compat.cast_bytes_py2(s)
 
@@ -1940,26 +1947,24 @@ class InteractiveShell(SingletonConfigurable):
 
         Parameters
         ----------
-
-           text : string
+        text : string
              A string of text to be completed on.  It can be given as empty and
              instead a line/position pair are given.  In this case, the
              completer itself will split the line like readline does.
-
-           line : string, optional
-             The complete line that text is part of.
-
-           cursor_pos : int, optional
+        line : string, optional
+            The complete line that text is part of.
+        cursor_pos : int, optional
              The position of the cursor on the input line.
 
         Returns
         -------
-          text : string
+        text : string
             The actual text that was completed.
-
-          matches : list
+        matches : list
             A sorted list with all possible completions.
 
+        Notes
+        -----
         The optional arguments allow the completion to take more context into
         account, and are part of the low-level completion API.
 
@@ -1968,12 +1973,15 @@ class InteractiveShell(SingletonConfigurable):
         exposing it as a method, it can be used by other non-readline
         environments (such as GUIs) for text completion.
 
-        Simple usage example:
+        Examples
+        --------
+        ::
 
-        In [1]: x = 'hello'
+            In [1]: x = 'hello'
 
-        In [2]: _ip.complete('x.l')
-        Out[2]: ('x.l', ['x.ljust', 'x.lower', 'x.lstrip'])
+            In [2]: _ip.complete('x.l')
+            Out[2]: ('x.l', ['x.ljust', 'x.lower', 'x.lstrip'])
+
         """
 
         # Inject names into __builtin__ so we can complete on the added names.
@@ -2102,13 +2110,15 @@ class InteractiveShell(SingletonConfigurable):
     def find_cell_magic(self, magic_name):
         """Find and return a cell magic by name.
 
-        Returns None if the magic isn't found."""
+        Returns None if the magic isn't found.
+        """
         return self.magics_manager.magics['cell'].get(magic_name)
 
     def find_magic(self, magic_name, magic_kind='line'):
         """Find and return a magic of the given type by name.
 
-        Returns None if the magic isn't found."""
+        Returns None if the magic isn't found.
+        """
         return self.magics_manager.magics[magic_kind].get(magic_name)
 
     def magic(self, arg_s):
@@ -2120,9 +2130,9 @@ class InteractiveShell(SingletonConfigurable):
         any additional arguments to be passed to the magic.
 
         magic('name -opt foo bar') is equivalent to typing at the ipython
-        prompt:
+        prompt::
 
-        In[1]: %name -opt foo bar
+            In[1]: %name -opt foo bar
 
         To call a magic without arguments, simply use magic('name').
 
@@ -2149,6 +2159,7 @@ class InteractiveShell(SingletonConfigurable):
         themacro : str or Macro
             The action to do upon invoking the macro.  If a string, a new
             Macro object is created by passing the string to it.
+
         """
 
         from IPython.core import macro
@@ -2169,9 +2180,10 @@ class InteractiveShell(SingletonConfigurable):
         Parameters
         ----------
         cmd : str
-          Command to execute (can not end in '&', as background processes are
-          not supported.  Should not be a command that expects input
-          other than simple text.
+            Command to execute (can not end in '&', as background processes are
+            not supported.  Should not be a command that expects input
+            other than simple text.
+
         """
         if cmd.rstrip().endswith('&'):
             # this is *far* from a rigorous test
@@ -2300,6 +2312,7 @@ class InteractiveShell(SingletonConfigurable):
 
         after the user's input prompt.  This helps the user understand that the
         input line was transformed automatically by IPython.
+
         """
         if not self.show_rewritten_input:
             return
@@ -2333,6 +2346,7 @@ class InteractiveShell(SingletonConfigurable):
         Returns
         -------
         A dict, keyed by the input names and with the repr() of each value.
+
         """
         out = {}
         user_ns = self.user_ns
@@ -2812,10 +2826,15 @@ class InteractiveShell(SingletonConfigurable):
         This makes a call to tempfile.mktemp, but it registers the created
         filename internally so ipython cleans it up at exit time.
 
-        Optional inputs:
+        Parameters
+        ----------
+        data : byte array, optional
+            if data is given, it gets written out to the temp file immediately,
+            and the file is closed again.
 
-          - data(None): if data is given, it gets written out to the temp file
-          immediately, and the file is closed again."""
+        prefix : string, optional
+
+        """
 
         filename = tempfile.mktemp('.py', prefix)
         self.tempfiles.append(filename)
@@ -2856,15 +2875,19 @@ class InteractiveShell(SingletonConfigurable):
             arguments as strings. The number before the / is the session
             number: ~n goes n back from the current session.
 
-        Optional Parameters:
-          - raw(False): by default, the processed input is used.  If this is
-          true, the raw input history is used instead.
+        raw : boolean, optional
+            by default, the processed input is used.  If this is
+            true, the raw input history is used instead.
 
-        Note that slices can be called with two notations:
+        Notes
+        -----
+        Slices can be called with two notations:
 
-        N:M -> standard python form, means including items N...(M-1).
+        - N:M -> standard python form, means including items N...(M-1).
 
-        N-M -> include items N..M (closed endpoint)."""
+        - N-M -> include items N..M (closed endpoint).
+
+        """
         lines = self.history_manager.get_range_by_str(range_str, raw=raw)
         return "\n".join(x for _, _, x in lines)
 
@@ -2875,29 +2898,30 @@ class InteractiveShell(SingletonConfigurable):
 
         Parameters
         ----------
-
         target : str
-
-          A string specifying code to retrieve. This will be tried respectively
-          as: ranges of input history (see %history for syntax), url,
-          correspnding .py file, filename, or an expression evaluating to a
-          string or Macro in the user namespace.
-
+            A string specifying code to retrieve. This will be tried respectively
+            as: ranges of input history (see %history for syntax), url,
+            correspnding .py file, filename, or an expression evaluating to a
+            string or Macro in the user namespace.
         raw : bool
-          If true (default), retrieve raw history. Has no effect on the other
-          retrieval mechanisms.
-
+            If true (default), retrieve raw history. Has no effect on the other
+            retrieval mechanisms.
         py_only : bool (default False)
-          Only try to fetch python code, do not try alternative methods to decode file
-          if unicode fails.
+            Only try to fetch python code, do not try alternative methods to decode file
+            if unicode fails.
 
         Returns
         -------
-        A string of code.
+        code : string
+            A string of code.
 
-        ValueError is raised if nothing is found, and TypeError if it evaluates
-        to an object of another type. In each case, .args[0] is a printable
-        message.
+        Raises
+        ------
+        ValueError
+            if nothing is found
+        TypeError
+            if it evaluates to an object of another type. In each case, ``.args[0]`` is a printable message.
+
         """
         code = self.extract_input_lines(target, raw=raw)  # Grab history
         if code:

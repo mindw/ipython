@@ -212,6 +212,8 @@ class StoreMagics(Magics):
 
 
 class StoreMagic(Plugin):
+    """ StoreMagic plugin
+    """
     shell = Instance('IPython.core.interactiveshell.InteractiveShellABC')
     autorestore = Bool(False, config=True)
     

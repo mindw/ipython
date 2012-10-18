@@ -42,7 +42,7 @@ else:
 # Classes and functions
 #-----------------------------------------------------------------------------
 
-class ISerialized:
+class ISerialized(object):
     
     def getData():
         """"""
@@ -57,7 +57,7 @@ class ISerialized:
         """"""
         
         
-class IUnSerialized:
+class IUnSerialized(object):
     
     def getObject():
         """"""

@@ -89,15 +89,15 @@ def passwd_check(hashed_passphrase, passphrase):
 
     Examples
     --------
-    In [1]: from IPython.lib.security import passwd_check
+    >>> from IPython.lib.security import passwd_check
 
-    In [2]: passwd_check('sha1:0e112c3ddfce:a68df677475c2b47b6e86d0467eec97ac5f4b85a',
-       ...:              'mypassword')
-    Out[2]: True
+    >>> passwd_check('sha1:0e112c3ddfce:a68df677475c2b47b6e86d0467eec97ac5f4b85a',
+    ...              'mypassword')
+    True
 
-    In [3]: passwd_check('sha1:0e112c3ddfce:a68df677475c2b47b6e86d0467eec97ac5f4b85a',
-       ...:              'anotherpassword')
-    Out[3]: False
+    >>> passwd_check('sha1:0e112c3ddfce:a68df677475c2b47b6e86d0467eec97ac5f4b85a',
+    ...              'anotherpassword')
+    False
 
     """
     try:

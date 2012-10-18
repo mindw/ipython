@@ -71,7 +71,7 @@ pickle:
 
 web: pickle
 
-htmlhelp:
+htmlhelp: api
 	mkdir -p build/htmlhelp build/doctrees
 	$(SPHINXBUILD) -b htmlhelp $(ALLSPHINXOPTS) build/htmlhelp
 	@echo

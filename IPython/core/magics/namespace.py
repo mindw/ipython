@@ -246,18 +246,19 @@ class NamespaceMagics(Magics):
 
         Define two variables and list them with who_ls::
 
-          In [1]: alpha = 123
+            In [1]: alpha = 123
 
-          In [2]: beta = 'test'
+            In [2]: beta = 'test'
 
-          In [3]: %who_ls
-          Out[3]: ['alpha', 'beta']
+            In [3]: %who_ls
+            Out[3]: ['alpha', 'beta']
 
-          In [4]: %who_ls int
-          Out[4]: ['alpha']
+            In [4]: %who_ls int
+            Out[4]: ['alpha']
 
-          In [5]: %who_ls str
-          Out[5]: ['beta']
+            In [5]: %who_ls str
+            Out[5]: ['beta']
+
         """
 
         user_ns = self.shell.user_ns
@@ -280,18 +281,16 @@ class NamespaceMagics(Magics):
         """Print all interactive variables, with some minimal formatting.
 
         If any arguments are given, only variables whose type matches one of
-        these are printed.  For example::
+        these are printed. For example::
 
-          %who function str
+            %who function str
 
         will only list functions and strings, excluding all other types of
-        variables.  To find the proper type names, simply use type(var) at a
-        command line to see how python prints type names.  For example:
+        variables. To find the proper type names, simply use ``type(var)`` at a
+        command line to see how python prints type names. For example::
 
-        ::
-
-          In [1]: type('hello')\\
-          Out[1]: <type 'str'>
+            In [1]: type('hello')
+            Out[1]: <type 'str'>
 
         indicates that the type name for strings is 'str'.
 
@@ -299,25 +298,25 @@ class NamespaceMagics(Magics):
         file and things which are internal to IPython.
 
         This is deliberate, as typically you may load many modules and the
-        purpose of %who is to show you only what you've manually defined.
+        purpose of ``%who`` is to show you only what you've manually defined.
 
         Examples
         --------
-
         Define two variables and list them with who::
 
-          In [1]: alpha = 123
+            In [1]: alpha = 123
 
-          In [2]: beta = 'test'
+            In [2]: beta = 'test'
 
-          In [3]: %who
-          alpha   beta
+            In [3]: %who
+            alpha   beta
 
-          In [4]: %who int
-          alpha
+            In [4]: %who int
+            alpha
 
-          In [5]: %who str
-          beta
+            In [5]: %who str
+            beta
+
         """
 
         varlist = self.who_ls(parameter_s)

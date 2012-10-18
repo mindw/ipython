@@ -168,14 +168,15 @@ which already exists. But you must first start the logging process with
     def log(self, line_mod, line_ori):
         """Write the sources to a log.
 
-        Inputs:
-
-        - line_mod: possibly modified input, such as the transformations made
-        by input prefilters or input handlers of various kinds.  This should
-        always be valid Python.
-
-        - line_ori: unmodified input line from the user.  This is not
-        necessarily valid Python.
+        Parameters
+        ----------
+        line_mod : string
+            possibly modified input, such as the transformations made
+            by input prefilters or input handlers of various kinds.  This should
+            always be valid Python.
+        line_ori : string
+            unmodified input line from the user.  This is not
+            necessarily valid Python.
         """
 
         # Write the log line, but decide which one according to the

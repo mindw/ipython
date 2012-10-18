@@ -3,62 +3,65 @@
 ultratb.py -- Spice up your tracebacks!
 
 * ColorTB
-I've always found it a bit hard to visually parse tracebacks in Python.  The
-ColorTB class is a solution to that problem.  It colors the different parts of a
-traceback in a manner similar to what you would expect from a syntax-highlighting
-text editor.
+    I've always found it a bit hard to visually parse tracebacks in Python.  The
+    ColorTB class is a solution to that problem.  It colors the different parts of a
+    traceback in a manner similar to what you would expect from a syntax-highlighting
+    text editor.
 
-Installation instructions for ColorTB:
-    import sys,ultratb
-    sys.excepthook = ultratb.ColorTB()
+    Installation instructions for ColorTB::
+
+        import sys,ultratb
+        sys.excepthook = ultratb.ColorTB()
 
 * VerboseTB
-I've also included a port of Ka-Ping Yee's "cgitb.py" that produces all kinds
-of useful info when a traceback occurs.  Ping originally had it spit out HTML
-and intended it for CGI programmers, but why should they have all the fun?  I
-altered it to spit out colored text to the terminal.  It's a bit overwhelming,
-but kind of neat, and maybe useful for long-running programs that you believe
-are bug-free.  If a crash *does* occur in that type of program you want details.
-Give it a shot--you'll love it or you'll hate it.
+    I've also included a port of Ka-Ping Yee's "cgitb.py" that produces all kinds
+    of useful info when a traceback occurs.  Ping originally had it spit out HTML
+    and intended it for CGI programmers, but why should they have all the fun?  I
+    altered it to spit out colored text to the terminal.  It's a bit overwhelming,
+    but kind of neat, and maybe useful for long-running programs that you believe
+    are bug-free.  If a crash *does* occur in that type of program you want details.
+    Give it a shot--you'll love it or you'll hate it.
 
-Note:
+    .. note::
 
-  The Verbose mode prints the variables currently visible where the exception
-  happened (shortening their strings if too long). This can potentially be
-  very slow, if you happen to have a huge data structure whose string
-  representation is complex to compute. Your computer may appear to freeze for
-  a while with cpu usage at 100%. If this occurs, you can cancel the traceback
-  with Ctrl-C (maybe hitting it more than once).
+      The Verbose mode prints the variables currently visible where the exception
+      happened (shortening their strings if too long). This can potentially be
+      very slow, if you happen to have a huge data structure whose string
+      representation is complex to compute. Your computer may appear to freeze for
+      a while with cpu usage at 100%. If this occurs, you can cancel the traceback
+      with Ctrl-C (maybe hitting it more than once).
 
-  If you encounter this kind of situation often, you may want to use the
-  Verbose_novars mode instead of the regular Verbose, which avoids formatting
-  variables (but otherwise includes the information and context given by
-  Verbose).
+      If you encounter this kind of situation often, you may want to use the
+      Verbose_novars mode instead of the regular Verbose, which avoids formatting
+      variables (but otherwise includes the information and context given by
+      Verbose).
 
 
-Installation instructions for ColorTB:
-    import sys,ultratb
-    sys.excepthook = ultratb.VerboseTB()
+    Installation instructions for ColorTB::
 
-Note:  Much of the code in this module was lifted verbatim from the standard
-library module 'traceback.py' and Ka-Ping Yee's 'cgitb.py'.
+        import sys,ultratb
+        sys.excepthook = ultratb.VerboseTB()
+
+    .. note::
+
+        Much of the code in this module was lifted verbatim from the standard
+        library module 'traceback.py' and Ka-Ping Yee's 'cgitb.py'.
 
 * Color schemes
-The colors are defined in the class TBTools through the use of the
-ColorSchemeTable class. Currently the following exist:
+    The colors are defined in the class TBTools through the use of the
+    ColorSchemeTable class. Currently the following exist:
 
-  - NoColor: allows all of this module to be used in any terminal (the color
-  escapes are just dummy blank strings).
+    - NoColor: allows all of this module to be used in any terminal (the color
+          escapes are just dummy blank strings).
+    - Linux: is meant to look good in a terminal like the Linux console (black
+        or very dark background).
+    - LightBG: similar to Linux but swaps dark/light colors to be more readable
+        in light background terminals.
 
-  - Linux: is meant to look good in a terminal like the Linux console (black
-  or very dark background).
+    You can implement other color schemes easily, the syntax is fairly
+    self-explanatory. Please send back new schemes you develop to the author for
+    possible inclusion in future releases.
 
-  - LightBG: similar to Linux but swaps dark/light colors to be more readable
-  in light background terminals.
-
-You can implement other color schemes easily, the syntax is fairly
-self-explanatory. Please send back new schemes you develop to the author for
-possible inclusion in future releases.
 """
 
 #*****************************************************************************
@@ -328,9 +331,17 @@ def _format_traceback_lines(lnum, index, lines, Colors, lvals=None,scheme=None):
 #---------------------------------------------------------------------------
 # Module classes
 class TBTools(object):
-    """Basic tools used by all traceback printer classes."""
+    """
+    Basic tools used by all traceback printer classes.
 
-    # Number of frames to skip when reporting tracebacks
+    Attributes
+    ----------
+    tb_offset
+
+    """
+
+
+    ''' Number of frames to skip when reporting tracebacks'''
     tb_offset = 0
 
     def __init__(self, color_scheme='NoColor', call_pdb=False, ostream=None):
@@ -364,10 +375,10 @@ class TBTools(object):
         Valid values are:
 
         - None: the default, which means that IPython will dynamically resolve
-        to io.stdout.  This ensures compatibility with most tools, including
-        Windows (where plain stdout doesn't recognize ANSI escapes).
-
+            to io.stdout.  This ensures compatibility with most tools, including
+            Windows (where plain stdout doesn't recognize ANSI escapes).
         - Any object with 'write' and 'flush' attributes.
+
         """
         return io.stdout if self._ostream is None else self._ostream
 
@@ -412,7 +423,7 @@ class TBTools(object):
                                             tb_offset, context)
         return self.stb2text(tb_list)
 
-    def structured_traceback(self, etype, evalue, tb, tb_offset=None,
+    def structured_traceback(self, etype, evalue, elist, tb_offset=None,
                              context=5, mode=None):
         """Return a list of traceback frames.
 
@@ -426,8 +437,11 @@ class ListTB(TBTools):
     """Print traceback information from a traceback list, with optional color.
 
     Calling: requires 3 arguments:
+
       (etype, evalue, elist)
-    as would be obtained by:
+
+    as would be obtained by::
+
       etype, evalue, tb = sys.exc_info()
       if tb:
         elist = traceback.extract_tb(tb)
@@ -545,7 +559,7 @@ class ListTB(TBTools):
         """Format the exception part of a traceback.
 
         The arguments are the exception type and value such as given by
-        sys.exc_info()[:2]. The return value is a list of strings, each ending
+        ``sys.exc_info()[:2]``. The return value is a list of strings, each ending
         in a newline.  Normally, the list contains a single string; however,
         for SyntaxError exceptions, it contains several lines that (when
         printed) display detailed information about where the syntax error
@@ -607,12 +621,14 @@ class ListTB(TBTools):
         return list
 
     def get_exception_only(self, etype, value):
-        """Only print the exception type and message, without a traceback.
+        """
+        Only print the exception type and message, without a traceback.
 
         Parameters
         ----------
         etype : exception type
         value : exception value
+
         """
         return ListTB.structured_traceback(self, etype, value, [])
 
@@ -624,6 +640,7 @@ class ListTB(TBTools):
         ----------
         etype : exception type
         value : exception value
+
         """
         # This method needs to use __call__ from *this* class, not the one from
         # a subclass whose signature or behavior may be different
@@ -641,22 +658,26 @@ class ListTB(TBTools):
 
 #----------------------------------------------------------------------------
 class VerboseTB(TBTools):
-    """A port of Ka-Ping Yee's cgitb.py module that outputs color text instead
+    """
+    A port of Ka-Ping Yee's cgitb.py module that outputs color text instead
     of HTML.  Requires inspect and pydoc.  Crazy, man.
 
     Modified version which optionally strips the topmost entries from the
     traceback, to be used with alternate interpreters (because their own code
-    would appear in the traceback)."""
+    would appear in the traceback).
+    """
 
     def __init__(self,color_scheme = 'Linux', call_pdb=False, ostream=None,
                  tb_offset=0, long_header=False, include_vars=True,
                  check_cache=None):
-        """Specify traceback offset, headers and color scheme.
+        """
+        Specify traceback offset, headers and color scheme.
 
         Define how many frames to drop from the tracebacks. Calling it with
         tb_offset=1 allows use of this handler in interpreters which will have
-        their own code at the top of the traceback (VerboseTB will first
-        remove that frame before printing the traceback info)."""
+        their own code at the top of the traceback (`VerboseTB` will first
+        remove that frame before printing the traceback info).
+        """
         TBTools.__init__(self, color_scheme=color_scheme, call_pdb=call_pdb,
                          ostream=ostream)
         self.tb_offset = tb_offset
@@ -673,7 +694,9 @@ class VerboseTB(TBTools):
 
     def structured_traceback(self, etype, evalue, etb, tb_offset=None,
                              context=5):
-        """Return a nice text document describing the traceback."""
+        """
+        Return a nice text document describing the traceback.
+        """
 
         tb_offset = self.tb_offset if tb_offset is None else tb_offset
 
@@ -969,13 +992,16 @@ class VerboseTB(TBTools):
         """Call up the pdb debugger if desired, always clean up the tb
         reference.
 
-        Keywords:
+        Parameters
+        ----------
+        force: boolean, optional
+            by default False, this routine checks the instance call_pdb
+            flag and does not actually invoke the debugger if the flag is false.
+            The 'force' option forces the debugger to activate even if the flag
+            is false.
 
-          - force(False): by default, this routine checks the instance call_pdb
-          flag and does not actually invoke the debugger if the flag is false.
-          The 'force' option forces the debugger to activate even if the flag
-          is false.
-
+        Notes
+        -----
         If the call_pdb flag is set, the pdb interactive debugger is
         invoked. In all cases, the self.tb reference to the current traceback
         is deleted to prevent lingering references which hamper memory
@@ -983,8 +1009,9 @@ class VerboseTB(TBTools):
 
         Note that each call to pdb() does an 'import readline', so if your app
         requires a special setup for the readline completers, you'll have to
-        fix that by hand after invoking the exception handler."""
+        fix that by hand after invoking the exception handler.
 
+        """
         if force or self.call_pdb:
             if self.pdb is None:
                 self.pdb = debugger.Pdb(
@@ -1042,7 +1069,8 @@ class FormattedTB(VerboseTB, ListTB):
     Allows a tb_offset to be specified. This is useful for situations where
     one needs to remove a number of topmost frames from the traceback (such as
     occurs with python programs that themselves execute other python code,
-    like Python shells).  """
+    like Python shells).
+    """
 
     def __init__(self, mode='Plain', color_scheme='Linux', call_pdb=False,
                  ostream=None,
@@ -1089,14 +1117,17 @@ class FormattedTB(VerboseTB, ListTB):
             )
 
     def stb2text(self, stb):
-        """Convert a structured traceback (a list) to a string."""
+        """
+        Convert a structured traceback (a list) to a string.
+        """
         return self.tb_join_char.join(stb)
 
 
     def set_mode(self,mode=None):
         """Switch to the desired mode.
 
-        If mode is not specified, cycles through the available modes."""
+        If mode is not specified, cycles through the available modes.
+        """
 
         if not mode:
             new_idx = ( self.valid_modes.index(self.mode) + 1 ) % \
@@ -1112,7 +1143,7 @@ class FormattedTB(VerboseTB, ListTB):
         # Set the join character for generating text tracebacks
         self.tb_join_char = self._join_chars[self.mode]
 
-    # some convenient shorcuts
+    # some convenient shortcuts
     def plain(self):
         self.set_mode(self.valid_modes[0])
 
@@ -1128,25 +1159,31 @@ class AutoFormattedTB(FormattedTB):
 
     It will find out about exceptions by itself.
 
-    A brief example:
+    A brief example::
 
-    AutoTB = AutoFormattedTB(mode = 'Verbose',color_scheme='Linux')
-    try:
-      ...
-    except:
-      AutoTB()  # or AutoTB(out=logfile) where logfile is an open file object
+        AutoTB = AutoFormattedTB(mode = 'Verbose',color_scheme='Linux')
+        try:
+          ...
+        except:
+          AutoTB()  # or AutoTB(out=logfile) where logfile is an open file object
+
     """
 
     def __call__(self,etype=None,evalue=None,etb=None,
                  out=None,tb_offset=None):
-        """Print out a formatted exception traceback.
+        """
+        Print out a formatted exception traceback.
 
-        Optional arguments:
-          - out: an open file-like object to direct output to.
+        parameters
+        ----------
+        out: file, optional
+            an open file-like object to direct output to.
 
-          - tb_offset: the number of frames to skip over in the stack, on a
+        tb_offset: integer, optional
+          the number of frames to skip over in the stack, on a
           per-call basis (this overrides temporarily the instance's tb_offset
-          given at initialization time.  """
+          given at initialization time.
+        """
 
 
         if out is None:

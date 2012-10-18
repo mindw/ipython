@@ -16,22 +16,23 @@ necessary code into a python file which can be either imported or execfile()'d
 from within your profile's ipython_config.py configuration.
 
 For example, suppose that you have a module called 'myiphooks' in your
-PYTHONPATH, which contains the following definition:
+PYTHONPATH, which contains the following definition::
 
-import os
-from IPython.core import ipapi
-ip = ipapi.get()
+    import os
+    from IPython.core import ipapi
+    ip = ipapi.get()
 
-def calljed(self,filename, linenum):
-    "My editor hook calls the jed editor directly."
-    print "Calling my own editor, jed ..."
-    if os.system('jed +%d %s' % (linenum,filename)) != 0:
-        raise TryNext()
+    def calljed(self,filename, linenum):
+        "My editor hook calls the jed editor directly."
+        print "Calling my own editor, jed ..."
+        if os.system('jed +%d %s' % (linenum,filename)) != 0:
+            raise TryNext()
 
-ip.set_hook('editor', calljed)
+    ip.set_hook('editor', calljed)
 
-You can then enable the functionality by doing 'import myiphooks'
+You can then enable the functionality by doing ``import myiphooks``
 somewhere in your configuration files or ipython command line.
+
 """
 
 #*****************************************************************************

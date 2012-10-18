@@ -76,6 +76,7 @@ class CrashHandler(object):
     used as a ``sys.excepthook``.  The :meth:`__call__` signature is::
 
         def __call__(self, etype, evalue, etb)
+
     """
 
     message_template = _default_message_template
@@ -87,7 +88,7 @@ class CrashHandler(object):
 
         Parameters
         ----------
-        app :  Application
+        app : Application
             A running :class:`Application` instance, which will be queried at
             crash time for internal information.
 
@@ -104,11 +105,14 @@ class CrashHandler(object):
             If false, don't print the crash traceback on stderr, only generate
             the on-disk report
 
+        Notes
+        -----
         Non-argument instance attributes:
 
         These instances contain some non-argument attributes which allow for
         further customization of the crash handler's behavior. Please see the
         source for further details.
+
         """
         self.crash_report_fname = "Crash_report_%s.txt" % app.name
         self.app = app

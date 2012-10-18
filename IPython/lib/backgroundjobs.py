@@ -104,67 +104,71 @@ class BackgroundJobManager(object):
     def new(self, func_or_exp, *args, **kwargs):
         """Add a new background job and start it in a separate thread.
 
+        Notes
+        -----
         There are two types of jobs which can be created:
 
         1. Jobs based on expressions which can be passed to an eval() call.
-        The expression must be given as a string.  For example:
+            The expression must be given as a string.  For example::
 
-          job_manager.new('myfunc(x,y,z=1)'[,glob[,loc]])
+                job_manager.new('myfunc(x,y,z=1)'[,glob[,loc]])
 
-        The given expression is passed to eval(), along with the optional
-        global/local dicts provided.  If no dicts are given, they are
-        extracted automatically from the caller's frame.
-        
-        A Python statement is NOT a valid eval() expression.  Basically, you
-        can only use as an eval() argument something which can go on the right
-        of an '=' sign and be assigned to a variable.
+            The given expression is passed to eval(), along with the optional
+            global/local dicts provided.  If no dicts are given, they are
+            extracted automatically from the caller's frame.
 
-        For example,"print 'hello'" is not valid, but '2+3' is.
+            A Python statement is NOT a valid eval() expression.  Basically, you
+            can only use as an eval() argument something which can go on the right
+            of an '=' sign and be assigned to a variable.
+
+            For example,``print 'hello'`` is not valid, but ``2+3`` is.
 
         2. Jobs given a function object, optionally passing additional
-        positional arguments:
+            positional arguments::
 
-          job_manager.new(myfunc, x, y)
+              job_manager.new(myfunc, x, y)
 
-        The function is called with the given arguments.
+            The function is called with the given arguments.
 
-        If you need to pass keyword arguments to your function, you must
-        supply them as a dict named kw:
+            If you need to pass keyword arguments to your function, you must
+            supply them as a dict named kw::
 
-          job_manager.new(myfunc, x, y, kw=dict(z=1))
+              job_manager.new(myfunc, x, y, kw=dict(z=1))
 
-        The reason for this assymmetry is that the new() method needs to
-        maintain access to its own keywords, and this prevents name collisions
-        between arguments to new() and arguments to your own functions.
+            The reason for this assymmetry is that the new() method needs to
+            maintain access to its own keywords, and this prevents name collisions
+            between arguments to new() and arguments to your own functions.
 
-        In both cases, the result is stored in the job.result field of the
-        background job object.
+            In both cases, the result is stored in the job.result field of the
+            background job object.
 
-        You can set `daemon` attribute of the thread by giving the keyword
-        argument `daemon`.
+            You can set `daemon` attribute of the thread by giving the keyword
+            argument `daemon`.
 
         Notes and caveats:
 
         1. All threads running share the same standard output.  Thus, if your
-        background jobs generate output, it will come out on top of whatever
-        you are currently writing.  For this reason, background jobs are best
-        used with silent functions which simply return their output.
+            background jobs generate output, it will come out on top of whatever
+            you are currently writing.  For this reason, background jobs are best
+            used with silent functions which simply return their output.
 
         2. Threads also all work within the same global namespace, and this
-        system does not lock interactive variables.  So if you send job to the
-        background which operates on a mutable object for a long time, and
-        start modifying that same mutable object interactively (or in another
-        backgrounded job), all sorts of bizarre behaviour will occur.
+            system does not lock interactive variables.  So if you send job to the
+            background which operates on a mutable object for a long time, and
+            start modifying that same mutable object interactively (or in another
+            backgrounded job), all sorts of bizarre behaviour will occur.
 
         3. If a background job is spending a lot of time inside a C extension
-        module which does not release the Python Global Interpreter Lock
-        (GIL), this will block the IPython prompt.  This is simply because the
-        Python interpreter can only switch between threads at Python
-        bytecodes.  While the execution is inside C code, the interpreter must
-        simply wait unless the extension module releases the GIL.
+            module which does not release the Python Global Interpreter Lock
+            (GIL), this will block the IPython prompt.  This is simply because the
+            Python interpreter can only switch between threads at Python
+            bytecodes.  While the execution is inside C code, the interpreter must
+            simply wait unless the extension module releases the GIL.
 
         4. There is no way, due to limitations in the Python threads library,
-        to kill a thread once it has started."""
+            to kill a thread once it has started.
+
+        """
         
         if callable(func_or_exp):
             kw  = kwargs.get('kw',{})
@@ -209,12 +213,15 @@ class BackgroundJobManager(object):
         """Update the status of the job lists.
 
         This method moves finished jobs to one of two lists:
-          - self.completed: jobs which completed successfully
-          - self.dead: jobs which finished but died.
+
+        - self.completed: jobs which completed successfully
+        - self.dead: jobs which finished but died.
 
         It also copies those jobs to corresponding _report lists.  These lists
         are used to report jobs completed/dead since the last update, and are
-        then cleared by the reporting function after each call."""
+        then cleared by the reporting function after each call.
+
+        """
 
         # Status codes
         srun, scomp, sdead = self._s_running, self._s_completed, self._s_dead
@@ -241,7 +248,8 @@ class BackgroundJobManager(object):
     def _group_report(self,group,name):
         """Report summary for a given job group.
 
-        Return True if the group had any elements."""
+        Return True if the group had any elements.
+        """
 
         if group:
             print '%s jobs:' % name
@@ -253,7 +261,8 @@ class BackgroundJobManager(object):
     def _group_flush(self,group,name):
         """Flush a given job group
 
-        Return True if the group had any elements."""
+        Return True if the group had any elements.
+        """
 
         njobs = len(group)
         if njobs:
@@ -263,12 +272,14 @@ class BackgroundJobManager(object):
             return True
         
     def _status_new(self):
-        """Print the status of newly finished jobs.
+        """
+        Print the status of newly finished jobs.
 
         Return True if any new jobs are reported.
 
         This call resets its own state every time, so it only reports jobs
-        which have finished since the last time it was called."""
+        which have finished since the last time it was called.
+        """
 
         self._update_status()
         new_comp = self._group_report(self._comp_report, 'Completed')
@@ -313,7 +324,8 @@ class BackgroundJobManager(object):
 
         It first calls _status_new(), to update info. If any jobs have
         completed since the last _status_new() call, the flush operation
-        aborts."""
+        aborts.
+        """
 
         # Remove the finished jobs from the master dict
         alljobs = self.all
@@ -356,14 +368,14 @@ class BackgroundJobBase(threading.Thread):
 
     The derived classes must implement:
 
-    - Their own __init__, since the one here raises NotImplementedError.  The
-    derived constructor must call self._init() at the end, to provide common
-    initialization.
-
+    - Their own __init__, since the one here raises NotImplementedError. The
+      derived constructor must call self._init() at the end, to provide common
+      initialization.
     - A strform attribute used in calls to __str__.
-
     - A call() method, which will make the actual execution call and must
-    return a value to be held in the 'result' field of the job object."""
+      return a value to be held in the 'result' field of the job object.
+
+    """
 
     # Class constants for status, in string and as numerical codes (when
     # updating jobs lists, we don't want to do string comparisons).  This will
@@ -442,7 +454,8 @@ class BackgroundJobExpr(BackgroundJobBase):
         """Create a new job from a string which can be fed to eval().
 
         global/locals dicts can be provided, which will be passed to the eval
-        call."""
+        call.
+        """
 
         # fail immediately if the given expression can't be compiled
         self.code = compile(expression,'<BackgroundJob compilation>','eval')
@@ -465,7 +478,8 @@ class BackgroundJobFunc(BackgroundJobBase):
         """Create a new job from a callable object.
 
         Any positional arguments and keyword args given to this constructor
-        after the initial callable are passed directly to it."""
+        after the initial callable are passed directly to it.
+        """
 
         if not callable(func):
             raise TypeError(

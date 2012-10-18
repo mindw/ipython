@@ -140,6 +140,7 @@ class OctaveMagics(Magics):
     def octave_pull(self, line):
         '''
         Line-level magic that pulls a variable from Octave.
+        ::
 
             In [18]: _ = %octave x = [1 2; 3 4]; y = 'hello'
 

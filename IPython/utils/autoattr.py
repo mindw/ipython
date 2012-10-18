@@ -46,8 +46,8 @@ class ResetMixin(object):
    OneTimeProperty descriptors, and their accessor functions will be triggered
    again.
 
-   Example
-   -------
+   Examples
+   --------
 
    >>> class A(ResetMixin):
    ...     def __init__(self,x=1.0):
@@ -58,28 +58,33 @@ class ResetMixin(object):
    ...         print '*** y computation executed ***'
    ...         return self.x / 2.0
    ...
-
    >>> a = A(10)
+   >>>
 
    About to access y twice, the second time no computation is done:
+
    >>> a.y
    *** y computation executed ***
    5.0
    >>> a.y
    5.0
 
-   Changing x
+   Changing x:
+
    >>> a.x = 20
 
    a.y doesn't change to 10, since it is a static attribute:
+
    >>> a.y
    5.0
 
    We now reset a, and this will then force all auto attributes to recompute
    the next time we access them:
+
    >>> a.reset()
 
    About to access y twice again after reset():
+
    >>> a.y
    *** y computation executed ***
    10.0
@@ -110,12 +115,14 @@ class OneTimeProperty(object):
 
         Parameters
         ----------
-          func : method
+        func : method
 
-            The method that will be called the first time to compute a value.
-            Afterwards, the method's name will be a standard attribute holding
-            the value of this computation.
-            """
+        Notes
+        -----
+        The method that will be called the first time to compute a value.
+        Afterwards, the method's name will be a standard attribute holding
+        the value of this computation.
+        """
        self.getter = func
        self.name = func.func_name
 

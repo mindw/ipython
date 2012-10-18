@@ -33,7 +33,7 @@ class HistoryMagics(Magics):
     @skip_doctest
     @line_magic
     def history(self, parameter_s = ''):
-        """Print input history (_i<n> variables), with most recent last.
+        r"""Print input history (_i<n> variables), with most recent last.
 
         %history [-o -p -t -n] [-f filename] [range | -g pattern | -l number]
 
@@ -42,59 +42,60 @@ class HistoryMagics(Magics):
 
         By default, all input history from the current session is displayed.
         Ranges of history can be indicated using the syntax:
-        4      : Line 4, current session
-        4-6    : Lines 4-6, current session
-        243/1-5: Lines 1-5, session 243
-        ~2/7   : Line 7, session 2 before current
-        ~8/1-~6/5 : From the first line of 8 sessions ago, to the fifth line
-                    of 6 sessions ago.
+
+        - 4      : Line 4, current session
+        - 4-6    : Lines 4-6, current session
+        - 243/1-5: Lines 1-5, session 243
+        - ~2/7   : Line 7, session 2 before current
+        - ~8/1-~6/5 : From the first line of 8 sessions ago, to the fifth line
+            of 6 sessions ago.
+
         Multiple ranges can be entered, separated by spaces
 
         The same syntax is used by %macro, %save, %edit, %rerun
 
         Options:
 
-          -n: print line numbers for each input.
-          This feature is only available if numbered prompts are in use.
+            -n: print line numbers for each input.
+                This feature is only available if numbered prompts are in use.
 
-          -o: also print outputs for each input.
+            -o: also print outputs for each input.
 
-          -p: print classic '>>>' python prompts before each input.  This is
-           useful for making documentation, and in conjunction with -o, for
-           producing doctest-ready output.
+            -p: print classic '>>>' python prompts before each input.  This is
+                useful for making documentation, and in conjunction with -o, for
+                producing doctest-ready output.
 
-          -r: (default) print the 'raw' history, i.e. the actual commands you
-           typed.
+            -r: (default) print the 'raw' history, i.e. the actual commands you
+            typed.
 
-          -t: print the 'translated' history, as IPython understands it.
-          IPython filters your input and converts it all into valid Python
-          source before executing it (things like magics or aliases are turned
-          into function calls, for example). With this option, you'll see the
-          native history instead of the user-entered version: '%cd /' will be
-          seen as 'get_ipython().magic("%cd /")' instead of '%cd /'.
+            -t: print the 'translated' history, as IPython understands it.
+                IPython filters your input and converts it all into valid Python
+                source before executing it (things like magics or aliases are turned
+                into function calls, for example). With this option, you'll see the
+                native history instead of the user-entered version: '%cd /' will be
+                seen as 'get_ipython().magic("%cd /")' instead of '%cd /'.
 
-          -g: treat the arg as a pattern to grep for in (full) history.
-          This includes the saved history (almost all commands ever written).
-          Use '%hist -g' to show full saved history (may be very long).
+            -g: treat the arg as a pattern to grep for in (full) history.
+                This includes the saved history (almost all commands ever written).
+                Use '%hist -g' to show full saved history (may be very long).
 
-          -l: get the last n lines from all sessions. Specify n as a single
-          arg, or the default is the last 10 lines.
+            -l: get the last n lines from all sessions. Specify n as a single
+                arg, or the default is the last 10 lines.
 
-          -f FILENAME: instead of printing the output to the screen, redirect
-           it to the given file.  The file is always overwritten, though *when
-           it can*, IPython asks for confirmation first. In particular, running
-           the command 'history -f FILENAME' from the IPython Notebook
-           interface will replace FILENAME even if it already exists *without*
-           confirmation.
+            -f FILENAME: instead of printing the output to the screen, redirect
+                it to the given file.  The file is always overwritten, though *when
+                it can*, IPython asks for confirmation first. In particular, running
+                the command 'history -f FILENAME' from the IPython Notebook
+                interface will replace FILENAME even if it already exists *without*
+                confirmation.
 
         Examples
         --------
-        ::
 
-          In [6]: %hist -n 4-6
-          4:a = 12
-          5:print a**2
-          6:%hist -n 4-6
+        >>> %hist -n 4-6
+        4:a = 12
+        5:print a**2
+        6:%hist -n 4-6
 
         """
 

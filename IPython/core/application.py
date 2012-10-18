@@ -75,6 +75,7 @@ base_flags = dict(
 
 
 class BaseIPythonApplication(Application):
+    """ IPython Application Base class """
 
     name = Unicode(u'ipython')
     description = Unicode(u'IPython: an enhanced interactive Python shell.')

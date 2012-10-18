@@ -53,7 +53,7 @@ magic_escapes = dict(line=ESC_MAGIC, cell=ESC_MAGIC2)
 # Utility classes and functions
 #-----------------------------------------------------------------------------
 
-class Bunch: pass
+class Bunch(object): pass
 
 
 def on_off(tag):
@@ -466,11 +466,11 @@ class Magics(object):
     MUST:
 
     - Use the method decorators `@line_magic` and `@cell_magic` to decorate
-    individual methods as magic functions, AND
+        individual methods as magic functions, AND
 
     - Use the class decorator `@magics_class` to ensure that the magic
-    methods are properly registered at the instance level upon instance
-    initialization.
+        methods are properly registered at the instance level upon instance
+        initialization.
 
     See :mod:`magic_functions` for examples of actual implementation classes.
     """
@@ -551,16 +551,22 @@ class Magics(object):
         This allows us to easily expand variables, glob files, quote
         arguments, etc.
 
-        Options:
-          -mode: default 'string'. If given as 'list', the argument string is
-          returned as a list (split on whitespace) instead of a string.
+        Parameters
+        ----------
+        mode : string, optional
+            If given as 'list', the argument string is
+            returned as a list (split on whitespace) instead of a string.
 
-          -list_all: put all option values in lists. Normally only options
-          appearing more than once are put in a list.
+        list_all: boolean, optional
+            put all option values in lists. Normally only options
+            appearing more than once are put in a list.
 
-          -posix (True): whether to split the input line in POSIX mode or not,
-          as per the conventions outlined in the shlex module from the
-          standard library."""
+        posix : boolean, optional
+            whether to split the input line in POSIX mode or not,
+            as per the conventions outlined in the shlex module from the
+            standard library.
+
+        """
 
         # inject default options at the beginning of the input line
         caller = sys._getframe(1).f_code.co_name

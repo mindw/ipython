@@ -125,6 +125,7 @@ def parse_test_output(txt):
     Returns
     -------
     nerr, nfail: number of errors and failures.
+
     """
 
     err_m = re.search(r'^FAILED \(errors=(\d+)\)', txt, re.MULTILINE)
